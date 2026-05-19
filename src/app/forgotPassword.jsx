@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import{Link} from "expo-router"
+import { Link } from 'expo-router';
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
   Platform,
 } from 'react-native';
 
-export default function BrewLedgerLogin() {
+export default function BrewLedgerForgotPassword({ navigation }) {
   const [email, setEmail] = useState('');
-  const [accessCode, setAccessCode] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
-  const handleLogin = () => {
-    // handle login logic
+  const handleReset = () => {
+    if (email.trim()) setSubmitted(true);
   };
 
   return (
@@ -29,54 +29,63 @@ export default function BrewLedgerLogin() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.brandName}>The Brew Ledger</Text>
-            <Text style={styles.tagline}>AUTHORIZED ACCESS LOG</Text>
+            <Text style={styles.tagline}>PASSWORD RECOVERY</Text>
           </View>
 
           <View style={styles.divider} />
 
           {/* Form */}
           <View style={styles.form}>
-            <Text style={styles.label}>OPERATOR EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="name@roastery.com"
-              placeholderTextColor="#b0a898"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            {!submitted ? (
+              <>
+                <Text style={styles.instructionText}>
+                  Enter your registered operator email. A recovery link will be dispatched shortly.
+                </Text>
 
-            <Text style={[styles.label, styles.labelSpacing]}>ACCESS CODE</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor="#b0a898"
-              value={accessCode}
-              onChangeText={setAccessCode}
-              secureTextEntry
-            />
+                <Text style={styles.label}>OPERATOR EMAIL</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="name@roastery.com"
+                  placeholderTextColor="#b0a898"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} activeOpacity={0.85}>
-              <Text style={styles.loginButtonText}>LOGIN</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={handleReset}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.primaryButtonText}>SEND RECOVERY LINK</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.confirmationBox}>
+                <Text style={styles.confirmationTitle}>LINK DISPATCHED</Text>
+                <Text style={styles.confirmationText}>
+                  Check your inbox at{'\n'}
+                  <Text style={styles.confirmationEmail}>{email}</Text>
+                  {'\n\n'}Follow the link to reset your access code.
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.divider} />
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Link href="/forgotPassword" asChild>
-                <TouchableOpacity>
-                <Text style={styles.footerLink}>Forgot{'\n'}Password?</Text>
+            <Link href="/Login" asChild>
+                <TouchableOpacity onPress={() => navigation?.goBack()}>
+                <Text style={styles.footerLink}>Back to{'\n'}Login</Text>
                 </TouchableOpacity>
             </Link>
-             <Link href="/createAccount" asChild>
-                <TouchableOpacity>
-                <Text style={styles.footerLink}>Create{'\n'}Account</Text>
-                </TouchableOpacity>
-            </Link>
+            <TouchableOpacity onPress={() => navigation?.navigate('CreateAccount')}>
+              <Text style={styles.footerLink}>Create{'\n'}Account</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -138,15 +147,19 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 24,
   },
+  instructionText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    color: '#6b5e4e',
+    lineHeight: 17,
+    marginBottom: 20,
+  },
   label: {
     fontSize: 9,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     color: '#4a3f32',
     letterSpacing: 2,
     marginBottom: 8,
-  },
-  labelSpacing: {
-    marginTop: 18,
   },
   input: {
     backgroundColor: '#f5efe6',
@@ -159,19 +172,44 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     color: '#2c2218',
   },
-  loginButton: {
+  primaryButton: {
     marginTop: 24,
     backgroundColor: '#1e1208',
     borderRadius: 2,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  loginButtonText: {
+  primaryButtonText: {
     color: '#f0e8dc',
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    letterSpacing: 3,
+    letterSpacing: 2.5,
     fontWeight: '600',
+  },
+
+  // Confirmation state
+  confirmationBox: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  confirmationTitle: {
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    color: '#4a3f32',
+    letterSpacing: 3,
+    marginBottom: 14,
+  },
+  confirmationText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    color: '#6b5e4e',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  confirmationEmail: {
+    color: '#2c2218',
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontSize: 11,
   },
 
   // Footer

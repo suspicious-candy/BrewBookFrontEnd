@@ -8,7 +8,7 @@ const App = () => {
       <Text style={styles.text}>BrewBook</Text>
       <Link href="/Login" asChild>
         <Pressable>
-         <Text> Login</Text>
+         <Text style={styles.text}> Login</Text>
          </Pressable>
       </Link>
     </View>
@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     flexDirection:'column'
   },
   text:{
-    color:'black',
+    color:'white',
     fontSize:32,
     fontWeight:'bold'
   }

@@ -49,11 +49,19 @@ export default function TabTwoScreen() {
             <Pressable style={({ pressed }) => pressed && styles.pressed}>
               <ThemedView type="backgroundElement" style={styles.linkButton}>
                 <ThemedText type="link">Expo documentation</ThemedText>
+                {Platform.OS === 'ios' ? (
                 <SymbolView
                   tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
+                  name="arrow.up.right.square"
                   size={12}
                 />
+              ) : (
+                <SymbolView
+                  tintColor={theme.text}
+                  name="link"
+                  size={12}
+                />
+              )}
               </ThemedView>
             </Pressable>
           </ExternalLink>
