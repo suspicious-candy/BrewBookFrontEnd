@@ -79,9 +79,9 @@ export default function BrewLedgerForgotPassword({ navigation }) {
           {/* Footer */}
           <View style={styles.footer}>
             <Link href="/Login" asChild>
-                <TouchableOpacity onPress={() => navigation?.goBack()}>
-                <Text style={styles.footerLink}>Back to{'\n'}Login</Text>
-                </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation?.goBack()}>
+              <Text style={styles.footerLink}>Back to{'\n'}Login</Text>
+            </TouchableOpacity>
             </Link>
             <TouchableOpacity onPress={() => navigation?.navigate('CreateAccount')}>
               <Text style={styles.footerLink}>Create{'\n'}Account</Text>
