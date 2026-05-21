@@ -6,9 +6,14 @@ const App = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>BrewBook</Text>
-      <Link href="/Login" asChild>
+      <Link href="/Login/Login" asChild>
         <Pressable>
          <Text style={styles.text}> Login</Text>
+         </Pressable>
+      </Link>
+      <Link href="/BrewerInventory/BrewerInventory" asChild>
+        <Pressable>
+         <Text style={styles.text}> Brewer Inventory</Text>
          </Pressable>
       </Link>
     </View>
