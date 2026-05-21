@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import{Link} from "expo-router"
+import React, { useEffect, useState } from 'react';
+import { Link, useRouter } from "expo-router"
 import {
   View,
   Text,
@@ -11,12 +11,31 @@ import {
   Platform,
 } from 'react-native';
 
+import { useAuth } from '@/auth/AuthContext';
+
 export default function BrewLedgerLogin() {
   const [email, setEmail] = useState('');
   const [accessCode, setAccessCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const { signIn, isAuthenticated } = useAuth();
+  const router = useRouter();
 
-  const handleLogin = () => {
-    // handle login logic
+  useEffect(() => {
+    if (isAuthenticated) router.replace('/User');
+  }, [isAuthenticated, router]);
+
+  const handleLogin = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      const ok = await signIn();
+      if (!ok) setError('Sign-in was cancelled or failed.');
+    } catch (err) {
+      setError(err?.message ?? 'Unable to start sign-in.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -58,21 +77,28 @@ export default function BrewLedgerLogin() {
               secureTextEntry
             />
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} activeOpacity={0.85}>
-              <Text style={styles.loginButtonText}>LOGIN</Text>
+            <TouchableOpacity
+              style={[styles.loginButton, submitting && styles.loginButtonDisabled]}
+              onPress={handleLogin}
+              activeOpacity={0.85}
+              disabled={submitting}
+            >
+              <Text style={styles.loginButtonText}>{submitting ? 'OPENING…' : 'LOGIN'}</Text>
             </TouchableOpacity>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 
           <View style={styles.divider} />
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Link href="/forgotPassword" asChild>
+            <Link href="/Login/forgotPassword" asChild>
                 <TouchableOpacity>
                 <Text style={styles.footerLink}>Forgot{'\n'}Password?</Text>
                 </TouchableOpacity>
             </Link>
-             <Link href="/createAccount" asChild>
+             <Link href="/Login/createAccount" asChild>
                 <TouchableOpacity>
                 <Text style={styles.footerLink}>Create{'\n'}Account</Text>
                 </TouchableOpacity>
@@ -166,12 +192,22 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
+  loginButtonDisabled: {
+    opacity: 0.6,
+  },
   loginButtonText: {
     color: '#f0e8dc',
     fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     letterSpacing: 3,
     fontWeight: '600',
+  },
+  errorText: {
+    marginTop: 12,
+    color: '#a23a1f',
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    textAlign: 'center',
   },
 
   // Footer

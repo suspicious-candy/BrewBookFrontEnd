@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -10,8 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useHrefAttrs } from 'expo-router/build/link/useLinkHooks';
 
-export default function BrewLedgerForgotPassword({ navigation }) {
+export default function BrewLedgerForgotPassword() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
@@ -78,12 +80,10 @@ export default function BrewLedgerForgotPassword({ navigation }) {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Link href="/Login" asChild>
-            <TouchableOpacity onPress={() => navigation?.goBack()}>
+            <TouchableOpacity onPress={() => router.dismissTo('/Login/Login')}>
               <Text style={styles.footerLink}>Back to{'\n'}Login</Text>
             </TouchableOpacity>
-            </Link>
-            <TouchableOpacity onPress={() => navigation?.navigate('CreateAccount')}>
+            <TouchableOpacity onPress={() => router.replace('/Login/createAccount')}>
               <Text style={styles.footerLink}>Create{'\n'}Account</Text>
             </TouchableOpacity>
           </View>

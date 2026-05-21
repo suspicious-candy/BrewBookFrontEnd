@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   View,
@@ -206,10 +207,10 @@ export default function BrewLedgerCreateAccount({ navigation }) {
 
             {/* Footer */}
             <View style={styles.footer}>
-              <TouchableOpacity onPress={() => navigation?.navigate('Login')}>
+              <TouchableOpacity onPress={() => router.replace('/Login/Login')}>
                 <Text style={styles.footerLink}>Back to{'\n'}Login</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation?.navigate('ForgotPassword')}>
+              <TouchableOpacity onPress={() =>router.replace('/Login/forgotPassword')}>
                 <Text style={styles.footerLink}>Forgot{'\n'}Password?</Text>
               </TouchableOpacity>
             </View>
