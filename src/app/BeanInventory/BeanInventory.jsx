@@ -158,7 +158,7 @@ function BeanCard({ bean }) {
     <Pressable
       style={styles.card}
       onPress={() =>
-        router.navigate({
+        router.push({
           pathname: '/beans/[id]',
           params: { id: bean.beanId },
         })

@@ -41,6 +41,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "authServerUrl": "http://localhost:3000",
+      "resourceServerUrl": "http://localhost:5001",
+      "clientId": "demo-client"
     }
   }
 }

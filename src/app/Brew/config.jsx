@@ -1,5 +1,3 @@
-// app/brew/config.jsx
-// Creates a Notes draft on CONFIRM (does NOT mutate the Recipe preset).
 import { useState, useRef } from 'react';
 import {
   View,
@@ -91,7 +89,7 @@ export default function RecipeConfig() {
     });
   }
 
-  // Picker modal state
+  // Picker modal state 
   const [picker, setPicker] = useState(null);
 
   const draftMutation = useMutation({

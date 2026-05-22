@@ -153,7 +153,7 @@ function BrewerCard({ brewer }) {
     <Pressable
       style={styles.card}
       onPress={() =>
-        router.navigate({
+        router.push({
           pathname: '/brewers/[id]',
           params: { id: brewer.BrewerID },
         })

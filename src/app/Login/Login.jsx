@@ -93,12 +93,12 @@ export default function BrewLedgerLogin() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Link href="/Login/forgotPassword" asChild>
+            <Link href="/Login/forgotPassword" push asChild>
                 <TouchableOpacity>
                 <Text style={styles.footerLink}>Forgot{'\n'}Password?</Text>
                 </TouchableOpacity>
             </Link>
-             <Link href="/Login/createAccount" asChild>
+             <Link href="/Login/createAccount" push asChild>
                 <TouchableOpacity>
                 <Text style={styles.footerLink}>Create{'\n'}Account</Text>
                 </TouchableOpacity>
