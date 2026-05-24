@@ -229,6 +229,23 @@ function RecipeRow({ recipe }) {
         <Text style={[styles.ratioValue, dim && styles.textDim]}>{ratio}</Text>
         <Text style={[styles.ratioLabel, dim && styles.textDim]}>RATIO</Text>
       </View>
+      <Pressable
+        style={{
+          flexDirection: 'row',
+          gap: 6,
+          margin: 14,
+          padding: 14,
+          backgroundColor: '#c0432b',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onPress={() => router.push(`/recipes/add?brewerId=${brewer.BrewerID}`)}
+      >
+        <Ionicons name="add" size={16} color="#fff" />
+        <Text style={{ color: '#fff', fontWeight: '700', letterSpacing: 1.5, fontSize: 12 }}>
+          ADD RECIPE
+        </Text>
+      </Pressable>
     </Pressable>
   );
 }
