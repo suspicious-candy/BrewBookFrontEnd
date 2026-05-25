@@ -1,5 +1,4 @@
 // app/index.jsx
-import { useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,11 +7,11 @@ import {
   Pressable,
   ActivityIndicator,
 } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, Redirect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import apiClient from '@/src/api/client';
-import { useAuth } from '@/src/auth/AuthContext';
+import apiClient from '@/api/client';
+import { useAuth } from '@/auth/AuthContext';
 
 // ---------- API ----------
 async function fetchDashboard() {
@@ -61,14 +60,7 @@ function initialsOf(user) {
 
 // ---------- Screen ----------
 export default function Dashboard() {
-  const { isAuthenticated, isHydrating } = useAuth();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isHydrating && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, isHydrating]);
+  const { isAuthenticated, isReady } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard'],
@@ -76,7 +68,8 @@ export default function Dashboard() {
     enabled: isAuthenticated,
   });
 
-  if (isHydrating || isLoading) {
+  // Wait for tokens to hydrate from SecureStore before deciding anything.
+  if (!isReady) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={ACCENT} />
@@ -84,8 +77,18 @@ export default function Dashboard() {
     );
   }
 
-  // Don't render dashboard if not authed — the useEffect above will redirect
-  if (!isAuthenticated) return null;
+  // Auth gate: <Redirect> works during render, unlike router.replace in useEffect.
+  if (!isAuthenticated) {
+    return <Redirect href="/Login/Login" />;
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={ACCENT} />
+      </View>
+    );
+  }
 
   if (isError || !data) {
     return (

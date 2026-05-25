@@ -11,8 +11,8 @@ import {
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import apiClient from '@/src/api/client';
-import brewerImages from '@/src/assets/brewerImages';
+import apiClient from '@/api/client';
+//import brewerImages from '@/src/assets/brewerImages';
 
 // ---------- API ----------
 async function fetchBrewer(id) {
@@ -114,25 +114,6 @@ export default function BrewerDetail() {
         </Pressable>
         <Text style={styles.topTitle}>BREWER SPEC</Text>
         <View style={{ width: 20 }} />
-      </View>
-
-      {/* Image block */}
-      <View style={styles.schematicBox}>
-        <View style={styles.schematicInner}>
-          {imgSource ? (
-            <Image
-              source={imgSource}
-              style={styles.brewerImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.imageFallback}>
-              <Ionicons name="cafe-outline" size={48} color={MUTED} />
-              <Text style={styles.imageFallbackText}>NO IMAGE</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.monogram}>{idCode}</Text>
       </View>
 
       {/* Brand + model + ID */}

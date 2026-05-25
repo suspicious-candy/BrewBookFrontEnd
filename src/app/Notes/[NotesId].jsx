@@ -12,7 +12,7 @@ import {
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import apiClient from '@/src/api/client';
+import apiClient from '@/api/client';
 
 // ---------- API ----------
 async function fetchNote(id) {

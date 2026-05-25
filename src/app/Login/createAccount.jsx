@@ -35,6 +35,7 @@ export default function BrewLedgerCreateAccount({ navigation }) {
   };
 
   // Mirror the Mongoose schema constraints
+  
   const validate = () => {
     const next = {};
 

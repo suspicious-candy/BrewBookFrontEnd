@@ -1,0 +1,1 @@
+export { api as default } from '@/auth/api';

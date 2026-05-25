@@ -10,7 +10,7 @@ import {
 import { router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import apiClient from '@/src/api/client';
+import apiClient from '@/api/client';
 
 // ---------- API ----------
 async function fetchMe() {
@@ -149,7 +149,7 @@ export default function Profile() {
         <View style={{ padding: 14, marginTop: 14 }}>
           <Pressable
             style={styles.signOutBtn}
-            onPress={() => router.replace('/login')}
+            onPress={() => router.replace('/Login/Login')}
           >
             <Ionicons name="log-out-outline" size={16} color={ACCENT} />
             <Text style={styles.signOutText}>SIGN OUT</Text>

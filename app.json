@@ -43,8 +43,8 @@
       "reactCompiler": true
     },
     "extra": {
-      "authServerUrl": "http://localhost:3000",
-      "resourceServerUrl": "http://localhost:5001",
+      "authServerUrl": "http://192.168.1.12:3000",
+      "resourceServerUrl": "http://192.168.1.12:5001",
       "clientId": "demo-client"
     }
   }

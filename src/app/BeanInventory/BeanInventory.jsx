@@ -13,7 +13,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import apiClient from '@/src/api/client';
+import apiClient from '@/api/client';
 
 // Assumed default bag size since the schema has no capacity field.
 // Adjust or add a `capacity` field to your schema if you want it accurate.
