@@ -67,7 +67,7 @@ function paramEntries(tracked) {
 
 // ---------- Screen ----------
 export default function NoteDetail() {
-  const { id } = useLocalSearchParams();
+  const { NotesId: id } = useLocalSearchParams();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,

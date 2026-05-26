@@ -18,8 +18,27 @@ import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
+import { useAuth } from '@/auth/AuthContext';
+import WheelPickerModal from '@/components/WheelPickerModal';
 
 const STEP_TYPES = ['bloom', 'pour', 'wait', 'swirl', 'stir', 'drawdown', 'plunge'];
+
+// Tetsu Kasuya 4:6 method for 15g coffee → 250g water.
+// Each blank-line block becomes one step; the splitter auto-detects
+// pour-to grams + durations + the step type from the wording.
+const V60_EXAMPLE = `Pour 50g of water for the bloom and swirl gently. Wait 45 seconds.
+
+Pour to 120g in slow concentric circles over 10 seconds.
+
+Wait 45 seconds for the bed to drop.
+
+Pour to 180g over 10 seconds.
+
+Wait 30 seconds.
+
+Pour to 220g in slow circles over 10 seconds.
+
+Pour to 250g to finish. Let it drawdown completely.`;
 
 // ---------- API ----------
 async function fetchBrewer(id) {
@@ -27,9 +46,17 @@ async function fetchBrewer(id) {
   return data;
 }
 
-async function fetchBeans() {
-  const { data } = await apiClient.get('/beans');
-  return data;
+// Scope the bean list to the signed-in user. The endpoint 404s if no Mongo
+// user profile exists yet — we swallow that into an empty list so the picker
+// can still render a sensible empty state.
+async function fetchUserBeans(email) {
+  try {
+    const { data } = await apiClient.get(`/beans/user/${encodeURIComponent(email)}`);
+    return data;
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throw err;
+  }
 }
 
 async function createRecipe(body) {
@@ -93,6 +120,8 @@ const newId = () => `s_${++_id}`;
 export default function AddRecipe() {
   const { brewerId } = useLocalSearchParams();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const email = user?.email;
 
   // Pre-fetch the brewer so we can show its name in the header
   const { data: brewer, isLoading: brewerLoading } = useQuery({
@@ -101,9 +130,10 @@ export default function AddRecipe() {
     enabled: !!brewerId,
   });
 
-  const { data: beans } = useQuery({
-    queryKey: ['beans'],
-    queryFn: fetchBeans,
+  const { data: beans, isLoading: beansLoading } = useQuery({
+    queryKey: ['beans', 'user', email],
+    queryFn: () => fetchUserBeans(email),
+    enabled: !!email,
   });
 
   // ----- Form state -----
@@ -113,10 +143,13 @@ export default function AddRecipe() {
   const [waterTemp, setWaterTemp] = useState('93');
   const [bloomTime, setBloomTime] = useState('45');
   const [agitation, setAgitation] = useState(false);
+  const [name,      setName]      = useState('');
   const [recipeBody, setRecipeBody] = useState('');
   const [rawText,   setRawText]   = useState('');
   const [steps,     setSteps]     = useState([]);  // step cards
   const [showBeanPicker, setShowBeanPicker] = useState(false);
+  // Which wheel picker is currently open: 'temp' | 'bloom' | null
+  const [wheelOpen, setWheelOpen] = useState(null);
 
   // ----- Derived values -----
   const dose  = Number(coffeeIn) || 0;
@@ -139,7 +172,10 @@ export default function AddRecipe() {
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['brewer-recipes', brewerId] });
       qc.invalidateQueries({ queryKey: ['recipes'] });
-      router.replace(`/brewers/${brewerId}`);
+      router.replace({
+        pathname: '/BrewerInventory/[BrewerId]',
+        params: { BrewerId: brewerId },
+      });
     },
   });
 
@@ -198,6 +234,7 @@ export default function AddRecipe() {
       return entry;
     });
     saveMutation.mutate({
+      Name: name.trim() || `${brewer?.Name ?? 'Recipe'} ${dose}:${water}`,
       Brewer: brewer?._id,
       bean: beanId ?? undefined,
       RecipeBody: recipeBody?.trim() || `${brewer?.Name ?? 'Recipe'} · ${dose}g : ${water}g`,
@@ -214,7 +251,12 @@ export default function AddRecipe() {
   // ----- Validation -----
   const lastPourMatches =
     steps.length === 0 || Math.abs((Number(steps[steps.length - 1]?.to) || 0) - water) <= 1;
-  const canSave = steps.length > 0 && dose > 0 && water > 0 && lastPourMatches;
+  const canSave =
+    steps.length > 0 &&
+    dose > 0 &&
+    water > 0 &&
+    lastPourMatches &&
+    name.trim().length >= 2;
 
   if (brewerLoading) {
     return (
@@ -254,6 +296,16 @@ export default function AddRecipe() {
             </Text>
           </View>
 
+          {/* Recipe name */}
+          <SectionHeader label="RECIPE NAME *" />
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Tetsu 4:6 V60"
+            placeholderTextColor="#9a9a9a"
+            style={styles.summaryInput}
+          />
+
           {/* Bean (optional) */}
           <SectionHeader label="BEAN (OPTIONAL)" />
           <View style={styles.beanBox}>
@@ -263,8 +315,8 @@ export default function AddRecipe() {
             >
               <Text style={styles.beanSelectorText}>
                 {beanId
-                  ? (beans?.find((b) => b._id === beanId)?.Name ?? 'Select…')
-                  : 'No bean attached'}
+                  ? (beans?.find((b) => b._id === beanId)?.details?.Name ?? 'Select…')
+                  : (beans?.length ? 'Tap to choose a bean' : 'No bean attached')}
               </Text>
               <Ionicons
                 name={showBeanPicker ? 'chevron-up' : 'chevron-down'}
@@ -274,27 +326,55 @@ export default function AddRecipe() {
             </Pressable>
             {showBeanPicker && (
               <View style={styles.beanList}>
-                <Pressable
-                  style={styles.beanOption}
-                  onPress={() => {
-                    setBeanId(null);
-                    setShowBeanPicker(false);
-                  }}
-                >
-                  <Text style={styles.beanOptionText}>None</Text>
-                </Pressable>
-                {beans?.map((b) => (
-                  <Pressable
-                    key={b._id}
-                    style={[styles.beanOption, beanId === b._id && styles.beanOptionActive]}
-                    onPress={() => {
-                      setBeanId(b._id);
-                      setShowBeanPicker(false);
-                    }}
-                  >
-                    <Text style={styles.beanOptionText}>{b.Name}</Text>
-                  </Pressable>
-                ))}
+                {beansLoading ? (
+                  <View style={styles.beanOption}>
+                    <ActivityIndicator size="small" color={ACCENT} />
+                  </View>
+                ) : !beans?.length ? (
+                  <View style={styles.beanOption}>
+                    <Text style={styles.beanOptionText}>
+                      You haven't added any beans yet. Add one from the Beans tab first.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Pressable
+                      style={styles.beanOption}
+                      onPress={() => {
+                        setBeanId(null);
+                        setShowBeanPicker(false);
+                      }}
+                    >
+                      <Text style={styles.beanOptionText}>None</Text>
+                    </Pressable>
+                    {beans.map((b) => {
+                      const d = b.details ?? {};
+                      const origin =
+                        d.Origin?.Country && d.Origin.Country !== 'none'
+                          ? d.Origin.Country
+                          : null;
+                      return (
+                        <Pressable
+                          key={b._id}
+                          style={[styles.beanOption, beanId === b._id && styles.beanOptionActive]}
+                          onPress={() => {
+                            setBeanId(b._id);
+                            setShowBeanPicker(false);
+                          }}
+                        >
+                          <Text style={styles.beanOptionText}>
+                            {d.Name ?? 'Unnamed bean'}
+                          </Text>
+                          {origin || d.Varietal ? (
+                            <Text style={styles.beanOptionMeta}>
+                              {[origin, d.Varietal].filter(Boolean).join(' • ')}
+                            </Text>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -306,14 +386,26 @@ export default function AddRecipe() {
             <ParamInput label="WATER" value={waterIn}   onChange={setWaterIn}   unit="g" />
           </View>
           <View style={styles.paramGrid}>
-            <ParamInput label="TEMP"   value={waterTemp} onChange={setWaterTemp} unit="°C" right />
+            <ParamPicker
+              label="TEMP"
+              value={waterTemp}
+              unit="°C"
+              right
+              onPress={() => setWheelOpen('temp')}
+            />
             <View style={styles.paramCell}>
               <Text style={styles.paramLabel}>RATIO</Text>
               <Text style={styles.paramReadOnly}>{ratio}</Text>
             </View>
           </View>
           <View style={styles.paramGrid}>
-            <ParamInput label="BLOOM" value={bloomTime} onChange={setBloomTime} unit="s"  right />
+            <ParamPicker
+              label="BLOOM"
+              value={bloomTime}
+              unit="s"
+              right
+              onPress={() => setWheelOpen('bloom')}
+            />
             <View style={[styles.paramCell, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
               <Text style={styles.paramLabel}>AGITATION</Text>
               <Switch
@@ -344,22 +436,29 @@ export default function AddRecipe() {
             <TextInput
               value={rawText}
               onChangeText={setRawText}
-              placeholder={
-                "Pour 30g of water for the bloom and swirl gently. Wait 45s.\n\nPour to 100g in slow circles over 15 seconds.\n\nWait for the bed to drop.\n\n..."
-              }
+              placeholder={V60_EXAMPLE}
               placeholderTextColor="#9a9a9a"
               multiline
               style={styles.pasteInput}
               textAlignVertical="top"
             />
-            <Pressable
-              style={[styles.splitBtn, !rawText.trim() && { opacity: 0.4 }]}
-              onPress={handleSplit}
-              disabled={!rawText.trim()}
-            >
-              <Ionicons name="git-branch-outline" size={16} color="#fff" />
-              <Text style={styles.splitBtnText}>SPLIT INTO STEPS</Text>
-            </Pressable>
+            <View style={styles.pasteActions}>
+              <Pressable
+                style={styles.fillExampleBtn}
+                onPress={() => setRawText(V60_EXAMPLE)}
+              >
+                <Ionicons name="document-text-outline" size={14} color={ACCENT} />
+                <Text style={styles.fillExampleText}>USE V60 EXAMPLE</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.splitBtn, !rawText.trim() && { opacity: 0.4 }]}
+                onPress={handleSplit}
+                disabled={!rawText.trim()}
+              >
+                <Ionicons name="git-branch-outline" size={16} color="#fff" />
+                <Text style={styles.splitBtnText}>SPLIT INTO STEPS</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Steps */}
@@ -432,6 +531,30 @@ export default function AddRecipe() {
             )}
           </Pressable>
         </View>
+
+        {/* Wheel pickers for TEMP and BLOOM */}
+        <WheelPickerModal
+          visible={wheelOpen === 'temp'}
+          title="WATER TEMPERATURE"
+          unit="°C"
+          min={80}
+          max={100}
+          step={1}
+          value={Number(waterTemp) || 93}
+          onConfirm={(v) => setWaterTemp(String(v))}
+          onClose={() => setWheelOpen(null)}
+        />
+        <WheelPickerModal
+          visible={wheelOpen === 'bloom'}
+          title="BLOOM TIME"
+          unit="SECONDS"
+          min={0}
+          max={120}
+          step={5}
+          value={Number(bloomTime) || 45}
+          onConfirm={(v) => setBloomTime(String(v))}
+          onClose={() => setWheelOpen(null)}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -460,6 +583,26 @@ function ParamInput({ label, value, onChange, unit, right }) {
         <Text style={styles.paramUnit}>{unit}</Text>
       </View>
     </View>
+  );
+}
+
+// Same visual footprint as ParamInput, but tapping opens a wheel picker
+// instead of bringing up the keyboard. Used for TEMP and BLOOM.
+function ParamPicker({ label, value, unit, right, onPress }) {
+  return (
+    <Pressable
+      style={[styles.paramCell, right && styles.paramCellRight]}
+      onPress={onPress}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={styles.paramLabel}>{label}</Text>
+        <Ionicons name="chevron-down" size={11} color={MUTED} />
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
+        <Text style={styles.paramInput}>{value}</Text>
+        <Text style={styles.paramUnit}>{unit}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -574,7 +717,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -619,7 +762,8 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   beanOptionActive: { backgroundColor: TINT },
-  beanOptionText: { fontSize: 12, color: INK },
+  beanOptionText: { fontSize: 13, color: INK, fontWeight: '600' },
+  beanOptionMeta: { fontSize: 11, color: MUTED, marginTop: 2 },
 
   paramGrid: {
     flexDirection: 'row',
@@ -666,15 +810,37 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
   },
   splitBtn: {
+    flex: 1,
     flexDirection: 'row',
     backgroundColor: DARK,
     paddingVertical: 12,
-    marginTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   splitBtnText: { color: '#fff', fontWeight: '700', letterSpacing: 1.5, fontSize: 11 },
+
+  pasteActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  fillExampleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: ACCENT,
+  },
+  fillExampleText: {
+    color: ACCENT,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    fontSize: 11,
+  },
 
   stepCard: {
     backgroundColor: CARD,

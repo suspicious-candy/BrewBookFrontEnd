@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 14,
     backgroundColor: CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,

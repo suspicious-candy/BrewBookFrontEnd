@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
 import { useAuth } from '@/auth/AuthContext';
+import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
 async function fetchDashboard() {
@@ -115,7 +116,7 @@ export default function Dashboard() {
       <View style={styles.topBar}>
         <Text style={styles.topTitle}>LEDGER</Text>
         <Pressable
-          onPress={() => router.push('/profile')}
+          onPress={() => router.push('/User')}
           style={styles.initialsChip}
           hitSlop={10}
         >
@@ -128,7 +129,12 @@ export default function Dashboard() {
         <Pressable
           style={styles.lastBrewCard}
           onPress={() =>
-            lastBrew?.ID ? router.push(`/notes/${lastBrew.ID}`) : null
+            lastBrew?.ID
+              ? router.push({
+                  pathname: '/Notes/[NotesId]',
+                  params: { NotesId: lastBrew.ID },
+                })
+              : null
           }
         >
           <Text style={styles.lastBrewLabel}>
@@ -192,13 +198,13 @@ export default function Dashboard() {
             icon="scan-outline"
             title="Scan Beans"
             subtitle="Digitize new bag via OCR"
-            onPress={() => router.push('/beans/scan')}
+            disabled
           />
           <ActionRow
             icon="add-circle-outline"
             title="New Brew"
             subtitle="Start a new extraction log"
-            onPress={() => router.push('/(tabs)/brewers')}
+            onPress={() => router.push('/BrewerInventory')}
           />
           <ActionRow
             icon="newspaper-outline"
@@ -277,14 +283,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: BORDER,
   },
   topTitle: {
-    fontSize: 14, letterSpacing: 3, color: INK, fontWeight: '700',
+    fontSize: 16, letterSpacing: 3, color: INK, fontWeight: '700',
+    fontFamily: FONT_SERIF,
   },
   initialsChip: {
     paddingHorizontal: 8,
@@ -308,6 +315,7 @@ const styles = StyleSheet.create({
   },
   beanName: {
     fontSize: 17, color: INK, fontWeight: '700', marginTop: 6,
+    fontFamily: FONT_SERIF,
   },
   brewMeta: {
     fontSize: 12, color: MUTED, marginTop: 4,

@@ -246,7 +246,7 @@ export default function BrewSelectBean() {
           disabled={!selectedBean}
           onPress={() =>
             router.push({
-              pathname: '/brew/confirm',
+              pathname: '/Brew/config',
               params: {
                 recipeId: recipe?.ID,
                 beanId:   selectedBean.beanId,

@@ -11,37 +11,61 @@ import {
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import Constants from 'expo-constants';
 import apiClient from '@/api/client';
+import { FONT_SERIF } from '@/constants/fonts';
 
 const DEFAULT_CAPACITY_G = 250;
 
-// Coffee-producing countries — extend as needed.
-// Coords are approximate country centers; deltas control zoom.
+const MAPTILER_KEY =
+  Constants.expoConfig?.extra?.maptilerKey ?? process.env.EXPO_PUBLIC_MAPTILER_KEY;
+// Pick whichever MapTiler style matches the app aesthetic.
+// Other good options: 'streets-v2', 'basic-v2', 'outdoor-v2', 'satellite'.
+const MAP_STYLE = 'streets-v2';
+const MAP_WIDTH = 600;
+const MAP_HEIGHT = 280;
+const MAP_ZOOM = 5;
+
+// Approximate country-center coords for major coffee origins.
 const COUNTRY_COORDS = {
-  Ethiopia:    { latitude: 9.145,   longitude: 40.4897, latitudeDelta: 12, longitudeDelta: 12 },
-  Kenya:       { latitude: -0.0236, longitude: 37.9062, latitudeDelta: 10, longitudeDelta: 10 },
-  Colombia:    { latitude: 4.5709,  longitude: -74.2973, latitudeDelta: 12, longitudeDelta: 12 },
-  Brazil:      { latitude: -14.235, longitude: -51.9253, latitudeDelta: 30, longitudeDelta: 30 },
-  Guatemala:   { latitude: 15.7835, longitude: -90.2308, latitudeDelta: 6,  longitudeDelta: 6 },
-  CostaRica:   { latitude: 9.7489,  longitude: -83.7534, latitudeDelta: 5,  longitudeDelta: 5 },
-  Panama:      { latitude: 8.5380,  longitude: -80.7821, latitudeDelta: 5,  longitudeDelta: 5 },
-  Ecuador:     { latitude: -1.8312, longitude: -78.1834, latitudeDelta: 7,  longitudeDelta: 7 },
-  Honduras:    { latitude: 15.2,    longitude: -86.2419, latitudeDelta: 6,  longitudeDelta: 6 },
-  Peru:        { latitude: -9.19,   longitude: -75.0152, latitudeDelta: 12, longitudeDelta: 12 },
-  Indonesia:   { latitude: -0.7893, longitude: 113.9213, latitudeDelta: 20, longitudeDelta: 20 },
-  Rwanda:      { latitude: -1.9403, longitude: 29.8739, latitudeDelta: 4,  longitudeDelta: 4 },
-  Burundi:     { latitude: -3.3731, longitude: 29.9189, latitudeDelta: 4,  longitudeDelta: 4 },
-  Yemen:       { latitude: 15.5527, longitude: 48.5164, latitudeDelta: 8,  longitudeDelta: 8 },
-  ElSalvador:  { latitude: 13.7942, longitude: -88.8965, latitudeDelta: 4,  longitudeDelta: 4 },
-  Mexico:      { latitude: 23.6345, longitude: -102.5528, latitudeDelta: 18, longitudeDelta: 18 },
+  Ethiopia:     [40.4897,   9.1450],
+  Kenya:        [37.9062,  -0.0236],
+  Colombia:     [-74.2973,  4.5709],
+  Brazil:       [-51.9253, -14.2350],
+  Guatemala:    [-90.2308, 15.7835],
+  'Costa Rica': [-83.7534,  9.7489],
+  Panama:       [-80.7821,  8.5380],
+  Ecuador:      [-78.1834, -1.8312],
+  Honduras:     [-86.2419, 15.2000],
+  Peru:         [-75.0152, -9.1900],
+  Indonesia:    [113.9213, -0.7893],
+  Rwanda:       [29.8739,  -1.9403],
+  Burundi:      [29.9189,  -3.3731],
+  Yemen:        [48.5164,  15.5527],
+  'El Salvador':[-88.8965, 13.7942],
+  Mexico:       [-102.5528, 23.6345],
+  Vietnam:      [108.2772, 14.0583],
+  India:        [78.9629,  20.5937],
+  Tanzania:     [34.8888,  -6.3690],
+  Uganda:       [32.2903,   1.3733],
+  Nicaragua:    [-85.2072, 12.8654],
+  Jamaica:      [-77.2975, 18.1096],
 };
 
-// Normalize country name to the lookup keys above
-function normalizeCountry(name) {
+function lookupCoords(name) {
   if (!name) return null;
-  const key = name.replace(/\s+/g, '');
-  return COUNTRY_COORDS[key] ? key : null;
+  if (COUNTRY_COORDS[name]) return COUNTRY_COORDS[name];
+  const lower = name.toLowerCase().trim();
+  const match = Object.keys(COUNTRY_COORDS).find(
+    (k) => k.toLowerCase() === lower
+  );
+  return match ? COUNTRY_COORDS[match] : null;
+}
+
+function buildStaticMapUrl(coords) {
+  if (!MAPTILER_KEY || !coords) return null;
+  const [lng, lat] = coords;
+  return `https://api.maptiler.com/maps/${MAP_STYLE}/static/${lng},${lat},${MAP_ZOOM}/${MAP_WIDTH}x${MAP_HEIGHT}.png?key=${MAPTILER_KEY}`;
 }
 
 // ---------- API ----------
@@ -63,7 +87,7 @@ function formatDate(d) {
 
 // ---------- Screen ----------
 export default function BeanDetail() {
-  const { id } = useLocalSearchParams();
+  const { BeanId: id } = useLocalSearchParams();
 
   const { data: bean, isLoading, isError, refetch } = useQuery({
     queryKey: ['bean', id],
@@ -89,16 +113,20 @@ export default function BeanDetail() {
     );
   }
 
-  const country = bean.Origin?.Country;
-  const region = bean.Origin?.Region;
-  const countryKey = normalizeCountry(country);
-  const mapRegion = countryKey ? COUNTRY_COORDS[countryKey] : null;
+  const d = bean.details ?? {};
+  const country = d.Origin?.Country;
+  const region = d.Origin?.Region;
+  const hasOrigin = country && country !== 'none';
+  const mapUrl = buildStaticMapUrl(lookupCoords(country));
 
   const remaining = bean.Quantity ?? 0;
   const pct = Math.max(0, Math.min(1, remaining / DEFAULT_CAPACITY_G));
 
-  const notes = bean.tasteProfile?.tastingNotes?.join(', ') || '—';
-  const roastType = bean.tasteProfile?.Roast ?? 'none';
+  const rawNotes = d.tasteProfile?.tastingNotes;
+  const notes = Array.isArray(rawNotes)
+    ? (rawNotes.join(', ') || '—')
+    : (typeof rawNotes === 'string' && rawNotes.trim() ? rawNotes : '—');
+  const roastType = d.tasteProfile?.Roast ?? 'none';
 
   return (
     <ScrollView style={styles.safe} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -114,46 +142,41 @@ export default function BeanDetail() {
         </Pressable>
       </View>
 
-      {/* Map / placeholder image */}
-      <View style={styles.mediaBox}>
-        {mapRegion ? (
-          <MapView
-            provider={PROVIDER_DEFAULT}
-            style={styles.map}
-            initialRegion={mapRegion}
-            scrollEnabled={false}
-            zoomEnabled={false}
-            pitchEnabled={false}
-            rotateEnabled={false}
-          >
-            <Marker
-              coordinate={{
-                latitude: mapRegion.latitude,
-                longitude: mapRegion.longitude,
-              }}
-              pinColor={ACCENT}
-            />
-          </MapView>
-        ) : (
+      {/* Origin — static map if we have a key + known country, else card */}
+      {mapUrl ? (
+        <View style={styles.mapBox}>
           <Image
-            source={require('@/assets/bean-placeholder.png')}
-            style={styles.placeholderImg}
+            source={{ uri: mapUrl }}
+            style={styles.mapImage}
             resizeMode="cover"
+            onError={(e) =>
+              console.warn('MapTiler image failed', mapUrl, e.nativeEvent)
+            }
           />
-        )}
-
-        {/* Floating brew icon (top-right of media) */}
-        <Pressable
-          style={styles.brewBtn}
-          onPress={() => router.push(`/beans/${bean.beanId}/brew`)}
-        >
-          <Ionicons name="cafe-outline" size={18} color={INK} />
-        </Pressable>
-      </View>
+          <View style={styles.mapOverlay}>
+            <Text style={styles.mapCountry}>
+              {country.toUpperCase()}
+            </Text>
+            {region && region !== 'none' ? (
+              <Text style={styles.mapRegion}>{region.toUpperCase()}</Text>
+            ) : null}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.originCard}>
+          <Ionicons name="location-outline" size={28} color={ACCENT} />
+          <Text style={styles.originCountry}>
+            {(hasOrigin ? country : 'Unknown Origin').toUpperCase()}
+          </Text>
+          {hasOrigin && region && region !== 'none' ? (
+            <Text style={styles.originRegion}>{region.toUpperCase()}</Text>
+          ) : null}
+        </View>
+      )}
 
       {/* Title block */}
       <View style={styles.titleBlock}>
-        <Text style={styles.beanName}>{bean.Name}</Text>
+        <Text style={styles.beanName}>{d.Name}</Text>
         <Text style={styles.originLine}>
           ORIGIN: {(country || 'NONE').toUpperCase()}
           {region && region !== 'none' ? `  •  REGION: ${region.toUpperCase()}` : ''}
@@ -162,11 +185,11 @@ export default function BeanDetail() {
 
       {/* Info grid */}
       <View style={styles.grid}>
-        <Row label="ALTITUDE" value={bean.Altitude ? `${bean.Altitude}m` : '—'} />
-        <Row label="PROCESS" value={capitalize(bean.Process) || 'Washed'} />
-        <Row label="VARIETAL" value={bean.Varietal || '—'} />
+        <Row label="ALTITUDE" value={d.Altitude ? `${d.Altitude}m` : '—'} />
+        <Row label="PROCESS" value={capitalize(d.Process) || 'Washed'} />
+        <Row label="VARIETAL" value={d.Varietal || '—'} />
         <Row label="TASTING NOTES" value={notes} />
-        <Row label="ROAST DATE" value={formatDate(bean.RoastDate)} />
+        <Row label="ROAST DATE" value={formatDate(d.RoastDate)} />
         <Row label="ROAST TYPE" value={capitalize(roastType)} />
         <Row
           label="CURRENT STOCK"
@@ -214,12 +237,13 @@ function capitalize(s) {
 }
 
 function buildAutoDescription(bean) {
+  const d = bean.details ?? {};
   const parts = [];
-  if (bean.Varietal) parts.push(`This ${bean.Varietal} variety`);
+  if (d.Varietal) parts.push(`This ${d.Varietal} variety`);
   else parts.push('This bean');
-  if (bean.Altitude) parts.push(`is cultivated at ${bean.Altitude} meters`);
-  if (bean.Process) parts.push(`and goes through a ${bean.Process.toLowerCase()} process`);
-  const notes = bean.tasteProfile?.tastingNotes;
+  if (d.Altitude) parts.push(`is cultivated at ${d.Altitude} meters`);
+  if (d.Process) parts.push(`and goes through a ${d.Process.toLowerCase()} process`);
+  const notes = d.tasteProfile?.tastingNotes;
   if (notes?.length) parts.push(`presenting notes of ${notes.join(', ').toLowerCase()}`);
   return parts.join(' ') + '.';
 }
@@ -238,7 +262,7 @@ const styles = StyleSheet.create({
 
   topBar: {
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -249,26 +273,65 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  mediaBox: {
+  mapBox: {
     marginHorizontal: 14,
     height: 220,
-    backgroundColor: '#000',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
-  },
-  map: { flex: 1 },
-  placeholderImg: { width: '100%', height: '100%' },
-
-  brewBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
+    position: 'relative',
     backgroundColor: CARD,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  },
+  mapImage: { width: '100%', height: '100%' },
+  mapOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(243, 238, 229, 0.92)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  mapCountry: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    letterSpacing: 2,
+    fontFamily: FONT_SERIF,
+  },
+  mapRegion: {
+    fontSize: 11,
+    color: MUTED,
+    letterSpacing: 1.5,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
+  originCard: {
+    marginHorizontal: 14,
+    paddingVertical: 32,
+    backgroundColor: CARD,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  originCountry: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+    letterSpacing: 2,
+    marginTop: 6,
+    fontFamily: FONT_SERIF,
+  },
+  originRegion: {
+    fontSize: 12,
+    color: MUTED,
+    letterSpacing: 2,
+    fontWeight: '600',
   },
 
   titleBlock: {
@@ -276,7 +339,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 10,
   },
-  beanName: { fontSize: 16, fontWeight: '600', color: INK },
+  beanName: { fontSize: 20, fontWeight: '600', color: INK, fontFamily: FONT_SERIF },
   originLine: {
     fontSize: 11,
     color: MUTED,

@@ -11,6 +11,7 @@ import { router, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
+import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
 async function fetchMe() {
@@ -64,9 +65,7 @@ export default function Profile() {
           <Ionicons name="arrow-back" size={20} color={INK} />
         </Pressable>
         <Text style={styles.topTitle}>PROFILE</Text>
-        <Pressable onPress={() => router.push('/settings')} hitSlop={10}>
-          <Ionicons name="settings-outline" size={18} color={INK} />
-        </Pressable>
+        <View style={{ width: 18 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -113,7 +112,11 @@ export default function Profile() {
             value={stats?.favoriteBean || '—'}
             onPress={
               stats?.favoriteBeanId
-                ? () => router.push(`/beans/${stats.favoriteBeanId}`)
+                ? () =>
+                    router.push({
+                      pathname: '/BeanInventory/[BeanId]',
+                      params: { BeanId: stats.favoriteBeanId },
+                    })
                 : null
             }
           />
@@ -122,7 +125,11 @@ export default function Profile() {
             value={stats?.favoriteBrewer || '—'}
             onPress={
               stats?.favoriteBrewerId
-                ? () => router.push(`/brewers/${stats.favoriteBrewerId}`)
+                ? () =>
+                    router.push({
+                      pathname: '/BrewerInventory/[BrewerId]',
+                      params: { BrewerId: stats.favoriteBrewerId },
+                    })
                 : null
             }
           />
@@ -131,7 +138,7 @@ export default function Profile() {
             value={stats?.favoriteRecipe || '—'}
             onPress={
               stats?.favoriteRecipeId
-                ? () => router.push(`/brew/select?recipeId=${stats.favoriteRecipeId}`)
+                ? () => router.push(`/Brew/selection?recipeId=${stats.favoriteRecipeId}`)
                 : null
             }
           />
@@ -223,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -242,7 +249,8 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   name: {
-    fontSize: 18, color: INK, fontWeight: '700', letterSpacing: 1.5,
+    fontSize: 20, color: INK, fontWeight: '700', letterSpacing: 1.5,
+    fontFamily: FONT_SERIF,
   },
   level: {
     fontSize: 11, color: MUTED, letterSpacing: 2, fontWeight: '600',

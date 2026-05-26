@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   TextInput,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import apiClient from '@/api/client';
+import { FONT_SERIF } from '@/constants/fonts';
 
 // Assumed default bag size since the schema has no capacity field.
 // Adjust or add a `capacity` field to your schema if you want it accurate.
@@ -58,6 +60,7 @@ function originLabel(origin) {
 export default function BeanInventory() {
   const [sortAsc, setSortAsc] = useState(true);
   const [query, setQuery] = useState('');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const { data: beans, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['beans'],
@@ -67,12 +70,12 @@ export default function BeanInventory() {
   const sortedBeans = useMemo(() => {
     if (!beans) return [];
     const filtered = beans.filter((b) =>
-      (b.Name ?? '').toLowerCase().includes(query.toLowerCase())
+      (b.details?.Name ?? '').toLowerCase().includes(query.toLowerCase())
     );
     return [...filtered].sort((a, b) =>
       sortAsc
-        ? (a.Name ?? '').localeCompare(b.Name ?? '')
-        : (b.Name ?? '').localeCompare(a.Name ?? '')
+        ? (a.details?.Name ?? '').localeCompare(b.details?.Name ?? '')
+        : (b.details?.Name ?? '').localeCompare(a.details?.Name ?? '')
     );
   }, [beans, sortAsc, query]);
 
@@ -140,48 +143,105 @@ export default function BeanInventory() {
       />
 
       {/* Floating add button */}
-      <Pressable style={styles.fab} onPress={() => router.push('/beans/new')}>
+      <Pressable
+        style={styles.fab}
+        onPress={() => setAddMenuOpen(true)}
+        hitSlop={10}
+      >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
+
+      {/* Add-bean choice modal */}
+      <Modal
+        visible={addMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddMenuOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setAddMenuOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>ADD A BEAN</Text>
+
+            <Pressable
+              style={styles.modalOption}
+              onPress={() => {
+                setAddMenuOpen(false);
+                // TODO: wire to scanner screen when it exists
+              }}
+            >
+              <Ionicons name="scan-outline" size={20} color={INK} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalOptionTitle}>Open Scanner</Text>
+                <Text style={styles.modalOptionSub}>Capture bag info with the camera</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={MUTED} />
+            </Pressable>
+
+            <Pressable
+              style={styles.modalOption}
+              onPress={() => {
+                setAddMenuOpen(false);
+                router.push('/BeanInventory/addBean');
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color={INK} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalOptionTitle}>Add Manually</Text>
+                <Text style={styles.modalOptionSub}>Enter the bean details by hand</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={MUTED} />
+            </Pressable>
+
+            <Pressable
+              style={styles.modalCancel}
+              onPress={() => setAddMenuOpen(false)}
+            >
+              <Text style={styles.modalCancelText}>CANCEL</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
 
 // ---------- Card ----------
 function BeanCard({ bean }) {
+  const d = bean.details ?? {};
   const remaining = bean.Quantity ?? 0;
   const pct = Math.max(0, Math.min(1, remaining / DEFAULT_CAPACITY_G));
-  const roast = bean.tasteProfile?.Roast ?? 'none';
-  const notes = bean.tasteProfile?.tastingNotes?.join(', ') || 'No notes';
+  const roast = d.tasteProfile?.Roast ?? 'none';
+  const notes = d.tasteProfile?.tastingNotes?.join(', ') || 'No notes';
 
   return (
     <Pressable
       style={styles.card}
       onPress={() =>
         router.push({
-          pathname: '/beans/[id]',
-          params: { id: bean.beanId },
+          pathname: '/BeanInventory/[BeanId]',
+          params: { BeanId: bean.beanId },
         })
       }
     >
       <View style={styles.cardTop}>
         <Text style={styles.roaster} numberOfLines={1}>
-          {originLabel(bean.Origin)}
+          {originLabel(d.Origin)}
         </Text>
         <Ionicons name={roastIconName(roast)} size={14} color="#5a5a5a" />
       </View>
 
       <Text style={styles.beanName} numberOfLines={2}>
-        {bean.Name}
+        {d.Name}
       </Text>
 
       <Text style={styles.beanMeta} numberOfLines={1}>
-        {(bean.Process ?? 'wash')} // {notes}
+        {(d.Process ?? 'wash')} // {notes}
       </Text>
 
-      {bean.Varietal ? (
+      {d.Varietal ? (
         <Text style={styles.varietal} numberOfLines={1}>
-          {bean.Varietal}
+          {d.Varietal}
         </Text>
       ) : null}
 
@@ -218,7 +278,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#cdc7b8',
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: INK },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: INK, fontFamily: FONT_SERIF },
 
   metaBar: {
     flexDirection: 'row',
@@ -268,6 +328,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: INK,
     marginTop: 2,
+    fontFamily: FONT_SERIF,
   },
   beanMeta: {
     fontSize: 12,
@@ -318,4 +379,57 @@ const styles = StyleSheet.create({
   },
   retryText: { color: '#fff', fontWeight: '600' },
   emptyText: { color: MUTED, marginTop: 40 },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: CREAM,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 28,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#cdc7b8',
+  },
+  modalTitle: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: MUTED,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    backgroundColor: CARD,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#cdc7b8',
+    marginBottom: 10,
+  },
+  modalOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: INK,
+  },
+  modalOptionSub: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 2,
+  },
+  modalCancel: {
+    marginTop: 6,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: ACCENT,
+    fontWeight: '700',
+    letterSpacing: 2,
+    fontSize: 12,
+  },
 });

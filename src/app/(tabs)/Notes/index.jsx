@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import apiClient from '@/api/client';
+import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
 async function fetchNotes() {
@@ -175,8 +176,8 @@ export default function NotesJournal() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => router.push('/brew/start')}>
+      {/* FAB — pick a brewer to start the brew flow */}
+      <Pressable style={styles.fab} onPress={() => router.push('/BrewerInventory')}>
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
 
@@ -205,7 +206,12 @@ function NoteRow({ note }) {
   return (
     <Pressable
       style={[styles.row, dim && styles.rowDim]}
-      onPress={() => router.push(`/notes/${note.ID}`)}
+      onPress={() =>
+        router.push({
+          pathname: '/Notes/[NotesId]',
+          params: { NotesId: note.ID },
+        })
+      }
     >
       <View style={{ flex: 1, paddingRight: 10 }}>
         <View style={styles.rowTopLine}>
@@ -332,7 +338,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: INK },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: INK, fontFamily: FONT_SERIF },
 
   search: {
     marginHorizontal: 14,

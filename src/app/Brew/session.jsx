@@ -302,7 +302,7 @@ function DoneOverlay({ visible, notesId, beanId, brewerId, recipeId }) {
             style={styles.doneAddBtn}
             onPress={() =>
               router.replace({
-                pathname: '/brew/log',
+                pathname: '/Brew/Log',
                 params: { notesId, recipeId, beanId, brewerId },
               })
             }
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,

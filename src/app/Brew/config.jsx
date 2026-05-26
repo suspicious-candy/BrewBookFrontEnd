@@ -111,7 +111,7 @@ export default function RecipeConfig() {
       }),
     onSuccess: (notes) => {
       router.push({
-        pathname: '/brew/run',
+        pathname: '/Brew/session',
         params: {
           notesId: notes.ID,
           recipeId: recipe?.ID,

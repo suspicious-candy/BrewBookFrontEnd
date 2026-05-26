@@ -2,17 +2,19 @@
 import {
   View,
   Text,
-  Image,
   ScrollView,
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
-//import brewerImages from '@/src/assets/brewerImages';
+import { FONT_SERIF } from '@/constants/fonts';
+
+const FILTER_OPTIONS = ['paper', 'metal', 'cloth', 'N/A'];
 
 // ---------- API ----------
 async function fetchBrewer(id) {
@@ -21,8 +23,13 @@ async function fetchBrewer(id) {
 }
 
 async function fetchRecipesForBrewer(id) {
-  const { data } = await apiClient.get(`/brewers/${id}/recipes`);
-  return data; // [{ _id, roastLevel, name, coffeeGrams, waterGrams, ratio }]
+  const { data } = await apiClient.get(`/recipes/brewer/${id}`);
+  return data;
+}
+
+async function updateBrewer({ id, patch }) {
+  const { data } = await apiClient.put(`/brewers/${id}`, patch);
+  return data;
 }
 
 // ---------- Helpers ----------
@@ -31,17 +38,15 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// "Hario V60 Dripper" → { brand: "HARIO", model: "V60 Dripper" }
 function splitName(name = '') {
   const parts = name.trim().split(/\s+/);
   if (parts.length < 2) return { brand: name.toUpperCase(), model: '' };
   return {
     brand: parts[0].toUpperCase(),
-    model: parts.slice(1).join(' ').toUpperCase(),
+    model: parts.slice(1).join(' '),
   };
 }
 
-// Mongo Map or plain object → [[k,v], ...]
 function paramEntries(tracked) {
   if (!tracked) return [];
   if (tracked instanceof Map) return Array.from(tracked.entries());
@@ -54,28 +59,54 @@ function ratioOf(coffee, water) {
   return `1:${r}`;
 }
 
+function typeIconName(type) {
+  switch (type) {
+    case 'espresso':    return 'flash';
+    case 'immersion':   return 'water';
+    case 'Perculation': return 'funnel';
+    default:            return 'cafe-outline';
+  }
+}
+
+function filterIconName(filter) {
+  switch (filter) {
+    case 'paper': return 'document-outline';
+    case 'metal': return 'disc-outline';
+    case 'cloth': return 'shirt-outline';
+    case 'N/A':   return 'remove-circle-outline';
+    default:      return 'ellipse-outline';
+  }
+}
+
 // ---------- Screen ----------
 export default function BrewerDetail() {
-  const { id } = useLocalSearchParams();
+  const { BrewerId: id } = useLocalSearchParams();
+  const qc = useQueryClient();
 
-  const {
-    data: brewer,
-    isLoading,
-    isError,
-    refetch,
-  } = useQuery({
+  const { data: brewer, isLoading, isError, refetch } = useQuery({
     queryKey: ['brewer', id],
     queryFn: () => fetchBrewer(id),
   });
 
-  const {
-    data: recipes,
-    isLoading: recipesLoading,
-  } = useQuery({
+  const { data: recipes, isLoading: recipesLoading } = useQuery({
     queryKey: ['brewer-recipes', id],
     queryFn: () => fetchRecipesForBrewer(id),
     enabled: !!brewer,
     retry: false,
+  });
+
+  const mutation = useMutation({
+    mutationFn: updateBrewer,
+    onSuccess: (updated) => {
+      qc.setQueryData(['brewer', id], updated);
+      qc.invalidateQueries({ queryKey: ['my-brewers'] });
+      qc.invalidateQueries({ queryKey: ['brewers-catalog'] });
+    },
+    onError: (err) => {
+      const msg =
+        err?.response?.data?.message ?? err?.message ?? 'Could not update brewer.';
+      Alert.alert('Update failed', msg);
+    },
   });
 
   if (isLoading) {
@@ -101,7 +132,13 @@ export default function BrewerDetail() {
   const idCode =
     brewer.modelCode || `B-${String(brewer.BrewerID).padStart(3, '0')}`;
   const tracked = paramEntries(brewer.trackedParameters);
-  const imgSource = brewerImages[brewer.BrewerID];
+  const currentFilter = brewer.filterType ?? null;
+  const currentType = brewer.Type ?? null;
+
+  const setFilterType = (filterType) => {
+    if (filterType === currentFilter || mutation.isPending) return;
+    mutation.mutate({ id: brewer.BrewerID, patch: { filterType } });
+  };
 
   return (
     <ScrollView style={styles.safe} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -116,28 +153,80 @@ export default function BrewerDetail() {
         <View style={{ width: 20 }} />
       </View>
 
-      {/* Brand + model + ID */}
-      <View style={styles.titleRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brand}>{brand}</Text>
-          <Text style={styles.model}>{model}</Text>
+      {/* Hero card */}
+      <View style={styles.hero}>
+        <View style={styles.heroIcon}>
+          <Ionicons name={typeIconName(currentType)} size={32} color={ACCENT} />
         </View>
+        <Text style={styles.brand}>{brand}</Text>
+        <Text style={styles.model}>{model || brewer.Name}</Text>
         <Text style={styles.idLine}>ID: {idCode}</Text>
       </View>
 
-      {/* TECHNICAL DETAILS */}
-      <SectionHeader icon="cog-outline" label="TECHNICAL DETAILS" />
-      <View style={styles.grid}>
-        <Row label="TYPE" value={capitalize(brewer.Type) || '—'} />
-        <Row label="FILTER" value={capitalize(brewer.filterType) || 'N/A'} />
-        {tracked.map(([k, v]) => (
-          <Row key={k} label={k.toUpperCase()} value={String(v)} />
-        ))}
+      {/* TYPE — read-only */}
+      <SectionHeader icon="cog-outline" label="TYPE" />
+      <View style={styles.fieldBlock}>
+        <View style={styles.staticRow}>
+          <Ionicons name={typeIconName(currentType)} size={18} color={ACCENT} />
+          <Text style={styles.staticValue}>
+            {currentType ? capitalize(currentType) : 'Unspecified'}
+          </Text>
+        </View>
       </View>
+
+      {/* FILTER — editable */}
+      <SectionHeader icon="funnel-outline" label="FILTER TYPE" />
+      <View style={styles.fieldBlock}>
+        <Text style={styles.fieldHint}>
+          Tap to change. Saved automatically.
+        </Text>
+        <View style={styles.chipsRow}>
+          {FILTER_OPTIONS.map((opt) => {
+            const active = opt === currentFilter;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => setFilterType(opt)}
+                disabled={mutation.isPending}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Ionicons
+                  name={filterIconName(opt)}
+                  size={14}
+                  color={active ? '#fff' : INK}
+                />
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {opt.toUpperCase()}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {mutation.isPending ? (
+          <View style={styles.savingRow}>
+            <ActivityIndicator size="small" color={ACCENT} />
+            <Text style={styles.savingText}>Saving…</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* TRACKED PARAMETERS — only if any exist */}
+      {tracked.length > 0 ? (
+        <>
+          <SectionHeader icon="options-outline" label="TRACKED PARAMETERS" />
+          <View style={styles.paramBox}>
+            {tracked.map(([k, v]) => (
+              <View key={k} style={styles.paramRow}>
+                <Text style={styles.paramKey}>{k.toUpperCase()}</Text>
+                <Text style={styles.paramVal}>{String(v)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
 
       {/* OPTIMIZED RECIPES */}
       <SectionHeader icon="flame-outline" label="OPTIMIZED RECIPES" />
-
       {recipesLoading ? (
         <View style={styles.recipesLoading}>
           <ActivityIndicator color={ACCENT} />
@@ -154,7 +243,7 @@ export default function BrewerDetail() {
           <Pressable
             style={styles.retryBtn}
             onPress={() =>
-              router.push(`/brewers/${brewer.BrewerID}/pair-recipe`)
+              router.push(`/Recipe/addRecipe?brewerId=${brewer.BrewerID}`)
             }
           >
             <Text style={styles.retryText}>Pair a Recipe</Text>
@@ -175,15 +264,6 @@ function SectionHeader({ icon, label }) {
   );
 }
 
-function Row({ label, value }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
-    </View>
-  );
-}
-
 function RecipeRow({ recipe }) {
   const roast = (recipe.roastLevel || 'medium').toLowerCase();
   const dim = roast === 'dark' || roast === 'french';
@@ -193,7 +273,7 @@ function RecipeRow({ recipe }) {
   return (
     <Pressable
       style={[styles.recipeRow, dim && styles.recipeRowDim]}
-      onPress={() => router.push(`/recipes/${recipe._id}`)}
+      onPress={() => router.push(`/Brew/selection?recipeId=${recipe._id}`)}
     >
       <View style={{ flex: 1 }}>
         <Text style={[styles.recipeRoast, dim && styles.textDim]}>
@@ -203,30 +283,13 @@ function RecipeRow({ recipe }) {
           {recipe.name}
         </Text>
         <Text style={[styles.recipeMeta, dim && styles.textDim]}>
-          {recipe.coffeeGrams}g Coffee / {recipe.waterGrams}g Water /...
+          {recipe.coffeeGrams}g Coffee / {recipe.waterGrams}g Water
         </Text>
       </View>
       <View style={styles.ratioBox}>
         <Text style={[styles.ratioValue, dim && styles.textDim]}>{ratio}</Text>
         <Text style={[styles.ratioLabel, dim && styles.textDim]}>RATIO</Text>
       </View>
-      <Pressable
-        style={{
-          flexDirection: 'row',
-          gap: 6,
-          margin: 14,
-          padding: 14,
-          backgroundColor: '#c0432b',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onPress={() => router.push(`/recipes/add?brewerId=${brewer.BrewerID}`)}
-      >
-        <Ionicons name="add" size={16} color="#fff" />
-        <Text style={{ color: '#fff', fontWeight: '700', letterSpacing: 1.5, fontSize: 12 }}>
-          ADD RECIPE
-        </Text>
-      </Pressable>
     </Pressable>
   );
 }
@@ -239,16 +302,12 @@ const ACCENT = '#c0432b';
 const INK = '#1f1f1f';
 const MUTED = '#6b6b6b';
 const BORDER = '#cdc7b8';
-const TAUPE = '#8b7a6e';
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: CREAM },
   centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: CREAM,
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    padding: 24, backgroundColor: CREAM,
   },
 
   topBar: {
@@ -256,70 +315,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 12,
   },
   topTitle: {
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: 2,
     color: INK,
     fontWeight: '700',
+    fontFamily: FONT_SERIF,
   },
 
-  schematicBox: {
+  hero: {
     marginHorizontal: 14,
-    height: 200,
-    backgroundColor: TAUPE,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: CARD,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
-    position: 'relative',
+    gap: 4,
+    marginBottom: 8,
   },
-  schematicInner: {
-    backgroundColor: CARD,
-    width: 140,
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+  heroIcon: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: '#f5dfd9',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8,
   },
-  brewerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageFallback: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  imageFallbackText: {
-    fontSize: 10,
-    color: MUTED,
-    letterSpacing: 1.5,
-  },
-  monogram: {
-    position: 'absolute',
-    bottom: 8,
-    right: 12,
-    fontSize: 10,
+  brand: {
+    fontSize: 12,
+    color: ACCENT,
     letterSpacing: 2,
-    color: CARD,
     fontWeight: '700',
   },
-
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
+  model: {
+    fontSize: 22,
+    color: INK,
+    fontWeight: '700',
+    fontFamily: FONT_SERIF,
+    textAlign: 'center',
   },
-  brand: { fontSize: 12, color: MUTED, letterSpacing: 1, fontWeight: '600' },
-  model: { fontSize: 14, color: INK, marginTop: 4 },
-  idLine: { fontSize: 11, color: MUTED, letterSpacing: 1 },
+  idLine: {
+    fontSize: 11,
+    color: MUTED,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
 
   sectionHeader: {
     flexDirection: 'row',
@@ -327,7 +369,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: CARD,
+    backgroundColor: '#e9e3d4',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: BORDER,
@@ -339,38 +381,102 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  grid: {
-    marginHorizontal: 14,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+  fieldBlock: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
     backgroundColor: CARD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
   },
-  row: {
+  fieldHint: {
+    fontSize: 11,
+    color: MUTED,
+    marginBottom: 10,
+    fontStyle: 'italic',
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  staticRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  staticValue: {
+    fontSize: 16,
+    color: INK,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  chipActive: {
+    backgroundColor: ACCENT,
+    borderColor: ACCENT,
+  },
+  chipText: {
+    fontSize: 12,
+    color: INK,
+    letterSpacing: 0.5,
+  },
+  chipTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  savingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  savingText: {
+    color: MUTED,
+    fontSize: 11,
+    letterSpacing: 1,
+  },
+
+  paramBox: {
+    backgroundColor: CARD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+  },
+  paramRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: BORDER,
   },
-  rowLabel: {
-    flex: 1,
+  paramKey: {
+    fontSize: 11,
+    color: MUTED,
+    letterSpacing: 1.5,
+    fontWeight: '600',
+  },
+  paramVal: {
     fontSize: 12,
     color: INK,
-    letterSpacing: 1,
-    fontWeight: '500',
+    fontWeight: '700',
   },
-  rowValue: { fontSize: 12, color: INK, textAlign: 'right' },
 
   recipesBox: {
-    marginHorizontal: 14,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
     backgroundColor: CARD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
   },
   recipeRow: {
     flexDirection: 'row',

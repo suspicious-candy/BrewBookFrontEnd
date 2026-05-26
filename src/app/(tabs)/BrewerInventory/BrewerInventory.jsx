@@ -14,11 +14,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import apiClient from '@/api/client';
+import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
-async function fetchBrewers() {
-  const { data } = await apiClient.get('/brewers');
-  return data; // array of Brewer documents
+// /brewers/me returns only the brewers the signed-in user has added to their
+// collection. The full catalog lives at /brewers and is shown on the
+// "Add a Brewer" screen reached via the FAB.
+async function fetchMyBrewers() {
+  const { data } = await apiClient.get('/brewers/me');
+  return data;
 }
 
 // ---------- Helpers ----------
@@ -56,8 +60,8 @@ export default function BrewerInventory() {
   const [query, setQuery] = useState('');
 
   const { data: brewers, isLoading, isError, refetch, isRefetching } = useQuery({
-    queryKey: ['brewers'],
-    queryFn: fetchBrewers,
+    queryKey: ['my-brewers'],
+    queryFn: fetchMyBrewers,
   });
 
   const sortedBrewers = useMemo(() => {
@@ -95,7 +99,7 @@ export default function BrewerInventory() {
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Brewer Rack</Text>
+        <Text style={styles.headerTitle}>My Brewers</Text>
         <Pressable onPress={() => setSortAsc((s) => !s)} hitSlop={10}>
           <Ionicons name="options-outline" size={22} color={INK} />
         </Pressable>
@@ -128,15 +132,23 @@ export default function BrewerInventory() {
         refreshing={isRefetching}
         onRefresh={refetch}
         ListEmptyComponent={
-          <View style={styles.centered}>
-            <Text style={styles.emptyText}>No brewers yet.</Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="flask-outline" size={48} color={MUTED} />
+            <Text style={styles.emptyTitle}>No brewers yet</Text>
+            <Text style={styles.emptySub}>
+              Tap the + button below to add brewers from the catalog.
+            </Text>
           </View>
         }
         renderItem={({ item }) => <BrewerCard brewer={item} />}
       />
 
-      {/* Floating add button */}
-      <Pressable style={styles.fab} onPress={() => router.push('/brewers/new')}>
+      {/* Floating add button → opens the catalog picker */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => router.push('/BrewerInventory/catalog')}
+        hitSlop={10}
+      >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
     </SafeAreaView>
@@ -154,8 +166,8 @@ function BrewerCard({ brewer }) {
       style={styles.card}
       onPress={() =>
         router.push({
-          pathname: '/brewers/[id]',
-          params: { id: brewer.BrewerID },
+          pathname: '/BrewerInventory/[BrewerId]',
+          params: { BrewerId: brewer.BrewerID },
         })
       }
     >
@@ -217,7 +229,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: BORDER,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: INK },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: INK, fontFamily: FONT_SERIF },
 
   metaBar: {
     flexDirection: 'row',
@@ -267,6 +279,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: INK,
     marginTop: 2,
+    fontFamily: FONT_SERIF,
   },
   idLabel: {
     fontSize: 10,
@@ -319,4 +332,24 @@ const styles = StyleSheet.create({
   },
   retryText: { color: '#fff', fontWeight: '600' },
   emptyText: { color: MUTED, marginTop: 40 },
+
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    letterSpacing: 1,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
 });

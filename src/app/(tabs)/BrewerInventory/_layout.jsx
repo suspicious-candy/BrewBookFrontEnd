@@ -1,7 +1,5 @@
 import { Stack } from 'expo-router';
 
-export default function AuthLayout() {
-  return (
-    <Stack/>
-  );
+export default function BrewerInventoryLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
