@@ -1,8 +1,9 @@
 import { SafeAreaView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { useAuth } from '@/auth/AuthContext';
 
 export default function ProfileTab() {
-  const { isReady, isAuthenticated, signIn, signOut } = useAuth();
+  const { isReady, isAuthenticated, signOut } = useAuth();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -17,7 +18,9 @@ export default function ProfileTab() {
 
       <Pressable
         style={styles.btn}
-        onPress={() => (isAuthenticated ? signOut() : signIn())}
+        onPress={() =>
+          isAuthenticated ? signOut() : router.push('/Login/Login')
+        }
         disabled={!isReady}
       >
         <Text style={styles.btnText}>{isAuthenticated ? 'Sign out' : 'Sign in'}</Text>

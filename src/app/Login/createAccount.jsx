@@ -13,10 +13,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-// Adjust to point to your backend
-const API_BASE_URL = 'http://localhost:3000';
+import { useAuth } from '@/auth/AuthContext';
 
-export default function BrewLedgerCreateAccount({ navigation }) {
+export default function BrewLedgerCreateAccount() {
+  const { signUp } = useAuth();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -67,33 +67,23 @@ export default function BrewLedgerCreateAccount({ navigation }) {
     setServerError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
-        }),
+      const { error } = await signUp(form.email.trim().toLowerCase(), form.password, {
+        first_name: form.firstName.trim(),
+        last_name: form.lastName.trim(),
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        // Map common Mongo/Mongoose errors to field-level feedback
-        if (data?.field === 'email' || /email/i.test(data?.message || '')) {
-          setErrors(prev => ({ ...prev, email: data.message || 'Email already in use' }));
+      if (error) {
+        if (/email/i.test(error)) {
+          setErrors(prev => ({ ...prev, email: error }));
         } else {
-          setServerError(data?.message || 'Registration failed. Please try again.');
+          setServerError(error);
         }
         return;
       }
 
-      // Success — navigate onward
-      navigation?.navigate('Login', { registeredEmail: form.email.trim().toLowerCase() });
+      router.replace('/Login/Login');
     } catch (err) {
-      setServerError('Could not reach the server. Check your connection.');
+      setServerError(err?.message ?? 'Could not create account.');
     } finally {
       setSubmitting(false);
     }
@@ -210,9 +200,6 @@ export default function BrewLedgerCreateAccount({ navigation }) {
             <View style={styles.footer}>
               <TouchableOpacity onPress={() => router.replace('/Login/Login')}>
                 <Text style={styles.footerLink}>Back to{'\n'}Login</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() =>router.replace('/Login/forgotPassword')}>
-                <Text style={styles.footerLink}>Forgot{'\n'}Password?</Text>
               </TouchableOpacity>
             </View>
           </View>

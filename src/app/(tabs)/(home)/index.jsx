@@ -76,6 +76,7 @@ export default function Dashboard() {
       </View>
     );
   }
+    console.log(isAuthenticated);
 
   // Auth gate: <Redirect> works during render, unlike router.replace in useEffect.
   if (!isAuthenticated) {
@@ -104,6 +105,7 @@ export default function Dashboard() {
   const { user, lastBrew, brewsToday, streak, beanSupply } = data;
   const beanName   = lastBrew?.Recipe?.bean?.Name   || 'Unknown Bean';
   const brewerName = lastBrew?.Recipe?.Brewer?.Name || 'Unknown Brewer';
+  console.log(data);
 
   return (
     <View style={styles.safe}>

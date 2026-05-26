@@ -27,12 +27,16 @@ export default function BrewLedgerLogin() {
 
   const handleLogin = async () => {
     setError('');
+    if (!email.trim() || !accessCode) {
+      setError('Enter your email and access code.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const ok = await signIn();
-      if (!ok) setError('Sign-in was cancelled or failed.');
+      const { error: signInError } = await signIn(email.trim().toLowerCase(), accessCode);
+      if (signInError) setError(signInError);
     } catch (err) {
-      setError(err?.message ?? 'Unable to start sign-in.');
+      setError(err?.message ?? 'Unable to sign in.');
     } finally {
       setSubmitting(false);
     }
@@ -93,11 +97,6 @@ export default function BrewLedgerLogin() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Link href="/Login/forgotPassword" push asChild>
-                <TouchableOpacity>
-                <Text style={styles.footerLink}>Forgot{'\n'}Password?</Text>
-                </TouchableOpacity>
-            </Link>
              <Link href="/Login/createAccount" push asChild>
                 <TouchableOpacity>
                 <Text style={styles.footerLink}>Create{'\n'}Account</Text>

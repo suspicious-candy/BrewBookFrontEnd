@@ -1,33 +1,35 @@
-import * as AuthSession from 'expo-auth-session';
+import 'react-native-url-polyfill/auto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { AppState } from 'react-native';
 
 type Extra = {
-  authServerUrl?: string;
-  resourceServerUrl?: string;
-  clientId?: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-// Android emulator can't reach the host's localhost — it uses 10.0.2.2.
-const defaultHost = Platform.OS === 'android' ? 'http://10.0.2.2' : 'http://localhost';
+if (!extra.supabaseUrl || !extra.supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase config. Set extra.supabaseUrl and extra.supabaseAnonKey in app.json.',
+  );
+}
 
-export const AUTH_SERVER_URL = extra.authServerUrl ?? `${defaultHost}:3000`;
-export const RESOURCE_SERVER_URL = extra.resourceServerUrl ?? `${defaultHost}:5001`;
-export const CLIENT_ID = extra.clientId ?? 'demo-client';
-export const SCOPES = ['read', 'write'];
-
-export const discovery: AuthSession.DiscoveryDocument = {
-  authorizationEndpoint: `${AUTH_SERVER_URL}/oauth/authorize`,
-  tokenEndpoint: `${AUTH_SERVER_URL}/oauth/token`,
-};
-
-export const redirectUri = AuthSession.makeRedirectUri({
-  scheme: 'brewbook',
-  path: 'callback',
+export const supabase = createClient(extra.supabaseUrl, extra.supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    // detectSessionInUrl is a web/SSR concept — disable for React Native.
+    detectSessionInUrl: false,
+  },
 });
 
-if (__DEV__) {
-  console.log('[oauth] redirectUri =', redirectUri);
-}
+// Pause/resume the auto-refresh timer when the app goes background/foreground.
+// Without this, refresh keeps running and burns battery, or fails silently.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') supabase.auth.startAutoRefresh();
+  else supabase.auth.stopAutoRefresh();
+});
