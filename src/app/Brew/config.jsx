@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
+import { useAuth } from '@/auth/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,6 +33,30 @@ async function fetchBrewer(id) {
 async function createNotesDraft(body) {
   const { data } = await apiClient.post('/notes', body);
   return data;
+}
+
+// Decrement a bean's stock. Best-effort: if it fails we still let the brew
+// proceed because the user has already committed to it.
+async function decrementBeanStock({ beanId, grams }) {
+  if (!beanId || !grams) return null;
+  try {
+    const { data } = await apiClient.patch(`/beans/${beanId}/consume`, { grams });
+    return data;
+  } catch (err) {
+    console.warn('Bean consume failed (non-fatal)', err?.message);
+    return null;
+  }
+}
+
+// User's beans (404 → []) so the picker stays usable for new accounts
+async function fetchUserBeans(email) {
+  try {
+    const { data } = await apiClient.get(`/beans/user/${encodeURIComponent(email)}`);
+    return data;
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throw err;
+  }
 }
 
 // ---------- Helpers ----------
@@ -61,7 +86,10 @@ function range(min, max, step = 1) {
 
 // ---------- Screen ----------
 export default function RecipeConfig() {
-  const { recipeId, brewerId, beanId } = useLocalSearchParams();
+  const { recipeId, brewerId, beanId: beanIdFromUrl } = useLocalSearchParams();
+  const { user } = useAuth();
+  const email = user?.email;
+  const qc = useQueryClient();
 
   const { data: recipe, isLoading: recipeLoading } = useQuery({
     queryKey: ['recipe', recipeId],
@@ -75,12 +103,47 @@ export default function RecipeConfig() {
     enabled: !!(brewerId || recipe?.Brewer),
   });
 
+  const { data: beans } = useQuery({
+    queryKey: ['beans', 'user', email],
+    queryFn: () => fetchUserBeans(email),
+    enabled: !!email,
+  });
+
+  // Bean choice: URL param wins, then recipe.bean (ObjectId), then null.
+  const [chosenBeanRef, setChosenBeanRef] = useState(null);
+  if (chosenBeanRef === null) {
+    if (beanIdFromUrl) {
+      setChosenBeanRef({ kind: 'beanId', value: Number(beanIdFromUrl) });
+    } else if (recipe?.bean) {
+      setChosenBeanRef({ kind: 'objectId', value: recipe.bean });
+    }
+  }
+
+  // Resolve the chosen reference into an actual bean document so we can show
+  // its name and confirm it still belongs to the user.
+  const selectedBean = useMemo(() => {
+    if (!beans || !chosenBeanRef) return null;
+    if (chosenBeanRef.kind === 'objectId') {
+      return beans.find((b) => b._id === chosenBeanRef.value) ?? null;
+    }
+    return beans.find((b) => b.beanId === chosenBeanRef.value) ?? null;
+  }, [beans, chosenBeanRef]);
+
+  const [beanPickerOpen, setBeanPickerOpen] = useState(false);
+
   // Local editable copy of the brew params (seeded from the recipe)
   const [params, setParams] = useState(null);
+  // The recipe's stored dose/water are treated as "per 1 cup". Changing the
+  // cup count scales both proportionally from these baselines.
+  const [baseline, setBaseline] = useState(null);
+  const [cups, setCups] = useState(1);
   if (recipe && params === null) {
+    const baseDose  = recipe.CoffeeIn ?? 15;
+    const baseWater = recipe.WaterIn  ?? 250;
+    setBaseline({ CoffeeIn: baseDose, WaterIn: baseWater });
     setParams({
-      CoffeeIn:  recipe.CoffeeIn  ?? 15,
-      WaterIn:   recipe.WaterIn   ?? 250,
+      CoffeeIn:  baseDose,
+      WaterIn:   baseWater,
       WaterTemp: recipe.WaterTemp ?? 93,
       grindSize: recipe.grindSize ?? 20,
       bloomTime: recipe.bloomTime ?? 45,
@@ -89,18 +152,30 @@ export default function RecipeConfig() {
     });
   }
 
-  // Picker modal state 
+  // Whenever cups changes, recompute dose/water from the per-cup baseline so
+  // they always stay in proportion.
+  const changeCups = (next) => {
+    const n = Math.max(1, Math.min(10, next));
+    setCups(n);
+    if (baseline) {
+      setParams((p) => ({
+        ...p,
+        CoffeeIn: +(baseline.CoffeeIn * n).toFixed(1),
+        WaterIn:  Math.round(baseline.WaterIn  * n),
+      }));
+    }
+  };
+
+  // Picker modal state
   const [picker, setPicker] = useState(null);
 
   const draftMutation = useMutation({
-    mutationFn: () =>
-      createNotesDraft({
-        // Recipe ObjectId — preferred. Backend can also resolve numeric ID if you send recipeId.
+    mutationFn: async () => {
+      const notes = await createNotesDraft({
         Recipe: recipe?._id,
-        recipeId: recipe?.ID,            // backup: numeric Recipe.ID
-        beanId:  beanId ? Number(beanId) : undefined,   // backend resolves bean ObjectId
-        brewerId: brewerId ? Number(brewerId) : (recipe?.Brewer ? undefined : undefined),
-        // Brew params (mirror Notes schema)
+        recipeId: recipe?.ID,
+        beanId: selectedBean?.beanId,
+        brewerId: brewerId ? Number(brewerId) : undefined,
         CoffeeIn:  params.CoffeeIn,
         WaterIn:   params.WaterIn,
         WaterTemp: params.WaterTemp,
@@ -108,15 +183,34 @@ export default function RecipeConfig() {
         grindSize: params.grindSize,
         bloomTime: params.bloomTime,
         Agitation: params.Agitation,
-      }),
+      });
+
+      // Decrement the bean's stock as soon as the brew starts — the brewer has
+      // committed to using these grams whether or not they later log tasting notes.
+      if (selectedBean?.beanId && params.CoffeeIn) {
+        await decrementBeanStock({
+          beanId: selectedBean.beanId,
+          grams: params.CoffeeIn,
+        });
+      }
+
+      return notes;
+    },
     onSuccess: (notes) => {
+      // Stats and inventory should reflect the new brew immediately.
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['beans', 'user', email] });
+      qc.invalidateQueries({ queryKey: ['beans'] });
+      qc.invalidateQueries({ queryKey: ['notes'] });
+      qc.invalidateQueries({ queryKey: ['me-stats'] });
+
       router.push({
         pathname: '/Brew/session',
         params: {
           notesId: notes.ID,
           recipeId: recipe?.ID,
           brewerId,
-          beanId,
+          beanId: selectedBean?.beanId,
         },
       });
     },
@@ -139,6 +233,12 @@ export default function RecipeConfig() {
   const brewerName =
     brewer?.Name?.split(/\s+/).slice(1).join(' ') || brewer?.Name || 'V60';
 
+  // Stock check: do we have enough of this bean for the configured dose?
+  const remainingGrams = selectedBean?.Quantity ?? 0;
+  const requiredGrams = Number(params.CoffeeIn) || 0;
+  const enoughStock = !selectedBean || remainingGrams >= requiredGrams;
+  const stockShort = requiredGrams - remainingGrams;
+
   return (
     <SafeAreaView style={styles.safe}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -150,6 +250,65 @@ export default function RecipeConfig() {
         </Pressable>
         <Text style={styles.topTitle}>CONFIG: {brewerName.toUpperCase()}</Text>
         <View style={{ width: 20 }} />
+      </View>
+
+      {/* Bean — pre-filled from the recipe when possible, otherwise required */}
+      <SectionHeader label="BEAN *" />
+      <Pressable
+        style={styles.beanSelector}
+        onPress={() => setBeanPickerOpen(true)}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={styles.beanSelectorLabel}>
+            {selectedBean ? 'USING' : 'CHOOSE A BEAN'}
+          </Text>
+          <Text style={styles.beanSelectorValue}>
+            {selectedBean?.details?.Name ?? 'Tap to pick'}
+          </Text>
+          {selectedBean ? (
+            <Text
+              style={[
+                styles.beanSelectorStock,
+                !enoughStock && styles.beanSelectorStockShort,
+              ]}
+            >
+              {remainingGrams}g remaining
+              {!enoughStock
+                ? ` · need ${requiredGrams}g (short ${stockShort}g)`
+                : ` · need ${requiredGrams}g`}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={MUTED} />
+      </Pressable>
+
+      {/* # of cups — scales DOSE and WATER from the recipe's baseline */}
+      <View style={styles.cupsRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cellLabel}>NUMBER OF CUPS</Text>
+          <Text style={styles.cupsHint}>
+            Scales dose & water proportionally. Recipe = 1 cup.
+          </Text>
+        </View>
+        <View style={styles.cupsControl}>
+          <Pressable
+            onPress={() => changeCups(cups - 1)}
+            hitSlop={10}
+            disabled={cups <= 1}
+            style={[styles.cupsBtn, cups <= 1 && { opacity: 0.4 }]}
+          >
+            <Text style={styles.cupsBtnText}>−</Text>
+          </Pressable>
+          <Text style={styles.cupsValue}>{cups}</Text>
+          <Pressable
+            onPress={() => changeCups(cups + 1)}
+            hitSlop={10}
+            disabled={cups >= 10}
+            style={[styles.cupsBtn, cups >= 10 && { opacity: 0.4 }]}
+          >
+            <Text style={styles.cupsBtnText}>+</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Top 2x2 summary grid */}
@@ -295,29 +454,56 @@ export default function RecipeConfig() {
             Couldn't start brew. Tap to retry.
           </Text>
         )}
+        {selectedBean && !enoughStock ? (
+          <Text style={styles.errorText}>
+            Not enough beans — {remainingGrams}g left but recipe needs {requiredGrams}g.
+          </Text>
+        ) : null}
         <Pressable
           onPress={() => draftMutation.mutate()}
-          disabled={draftMutation.isPending}
+          disabled={
+            draftMutation.isPending || !selectedBean || !enoughStock
+          }
           style={[
             styles.confirmBtn,
-            draftMutation.isPending && { opacity: 0.5 },
+            (draftMutation.isPending || !selectedBean || !enoughStock) && {
+              opacity: 0.5,
+            },
           ]}
         >
           {draftMutation.isPending ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.confirmText}>CONFIRM PARAMETERS</Text>
+            <Text style={styles.confirmText}>
+              {!selectedBean
+                ? 'PICK A BEAN TO CONTINUE'
+                : !enoughStock
+                ? 'NOT ENOUGH BEANS'
+                : 'CONFIRM PARAMETERS'}
+            </Text>
           )}
         </Pressable>
       </View>
 
-      {/* Picker modal */}
+      {/* Picker modal — numeric values */}
       <PickerModal
         config={picker}
         onClose={() => setPicker(null)}
         onSelect={(v) => {
           if (picker) commit(picker.field, v);
           setPicker(null);
+        }}
+      />
+
+      {/* Bean picker modal */}
+      <BeanPickerModal
+        visible={beanPickerOpen}
+        beans={beans ?? []}
+        selectedId={selectedBean?._id}
+        onClose={() => setBeanPickerOpen(false)}
+        onSelect={(bean) => {
+          setChosenBeanRef({ kind: 'objectId', value: bean._id });
+          setBeanPickerOpen(false);
         }}
       />
     </SafeAreaView>
@@ -352,6 +538,73 @@ function AdjustRow({ label, value, step, unit, min = 0, onChange }) {
         </Pressable>
       </View>
     </View>
+  );
+}
+
+// ---------- Bean Picker Modal ----------
+function BeanPickerModal({ visible, beans, selectedId, onClose, onSelect }) {
+  if (!visible) return null;
+  return (
+    <Modal
+      transparent
+      animationType="fade"
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.beanModalRoot}>
+        <Pressable style={styles.beanModalBackdrop} onPress={onClose} />
+        <View style={styles.beanModalSheet}>
+          <Text style={styles.beanModalTitle}>CHOOSE A BEAN</Text>
+
+          {beans.length === 0 ? (
+            <View style={styles.beanModalEmpty}>
+              <Text style={styles.beanModalEmptyText}>
+                You haven't added any beans yet. Add one from the Beans tab first.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.beanModalList}>
+              {beans.map((b) => {
+                const isSelected = b._id === selectedId;
+                const d = b.details ?? {};
+                const origin =
+                  d.Origin?.Country && d.Origin.Country !== 'none'
+                    ? d.Origin.Country
+                    : null;
+                return (
+                  <Pressable
+                    key={b._id}
+                    onPress={() => onSelect(b)}
+                    style={[
+                      styles.beanModalRow,
+                      isSelected && styles.beanModalRowActive,
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.beanModalRowName}>
+                        {d.Name ?? 'Unnamed bean'}
+                      </Text>
+                      {origin || d.Varietal ? (
+                        <Text style={styles.beanModalRowMeta}>
+                          {[origin, d.Varietal].filter(Boolean).join(' • ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {isSelected ? (
+                      <Ionicons name="checkmark" size={18} color={ACCENT} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          <Pressable style={styles.beanModalCancel} onPress={onClose}>
+            <Text style={styles.beanModalCancelText}>CLOSE</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -675,5 +928,145 @@ const styles = StyleSheet.create({
   },
   modalOkText: {
     color: '#fff', fontWeight: '700', letterSpacing: 1.5, fontSize: 11,
+  },
+
+  // Bean selector row (in-page)
+  beanSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: CARD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+  },
+  beanSelectorLabel: {
+    fontSize: 10,
+    color: MUTED,
+    letterSpacing: 1.5,
+    fontWeight: '600',
+  },
+  beanSelectorValue: {
+    fontSize: 15,
+    color: INK,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  beanSelectorStock: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
+  beanSelectorStockShort: {
+    color: ACCENT,
+    fontWeight: '700',
+  },
+
+  cupsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: CARD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+    gap: 12,
+  },
+  cupsHint: {
+    fontSize: 10,
+    color: MUTED,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  cupsControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  cupsBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  cupsBtnText: {
+    fontSize: 20,
+    color: ACCENT,
+    fontWeight: '700',
+  },
+  cupsValue: {
+    minWidth: 36,
+    textAlign: 'center',
+    fontSize: 18,
+    color: INK,
+    fontWeight: '700',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+    paddingVertical: 10,
+  },
+
+  // Bean picker modal
+  beanModalRoot: { flex: 1, justifyContent: 'flex-end' },
+  beanModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20,12,8,0.55)',
+  },
+  beanModalSheet: {
+    backgroundColor: CARD,
+    paddingTop: 20,
+    paddingBottom: 28,
+    paddingHorizontal: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  beanModalTitle: {
+    fontSize: 12,
+    letterSpacing: 2,
+    color: MUTED,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  beanModalList: {
+    backgroundColor: '#fff',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  beanModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+  },
+  beanModalRowActive: { backgroundColor: '#f5e9df' },
+  beanModalRowName: { fontSize: 14, color: INK, fontWeight: '700' },
+  beanModalRowMeta: { fontSize: 11, color: MUTED, marginTop: 2 },
+  beanModalEmpty: {
+    padding: 18,
+    backgroundColor: '#fff',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BORDER,
+  },
+  beanModalEmptyText: {
+    fontSize: 12,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  beanModalCancel: {
+    marginTop: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: ACCENT,
+  },
+  beanModalCancelText: {
+    color: ACCENT,
+    fontWeight: '700',
+    letterSpacing: 2,
+    fontSize: 11,
   },
 });

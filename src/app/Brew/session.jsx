@@ -281,7 +281,7 @@ function DoneOverlay({ visible, notesId, beanId, brewerId, recipeId }) {
         {/* Close (X) → home */}
         <Pressable
           style={styles.doneClose}
-          onPress={() => router.replace('/')}
+          onPress={() => router.replace('/Dashboard')}
           hitSlop={10}
         >
           <Ionicons name="close" size={26} color={INK} />
@@ -313,7 +313,7 @@ function DoneOverlay({ visible, notesId, beanId, brewerId, recipeId }) {
 
           <Pressable
             style={styles.doneSkipBtn}
-            onPress={() => router.replace('/')}
+            onPress={() => router.replace('/Dashboard')}
           >
             <Text style={styles.doneSkipText}>SKIP — BACK TO HOME</Text>
           </Pressable>

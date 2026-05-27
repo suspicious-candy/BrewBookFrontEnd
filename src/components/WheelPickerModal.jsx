@@ -50,7 +50,6 @@ export default function WheelPickerModal({
   useEffect(() => {
     if (!visible) return;
     setActiveIndex(initialIndex);
-    // Defer until the FlatList has laid out, otherwise scrollToOffset is a no-op
     const t = setTimeout(() => {
       listRef.current?.scrollToOffset({
         offset: initialIndex * ITEM_WIDTH,
@@ -60,11 +59,10 @@ export default function WheelPickerModal({
     return () => clearTimeout(t);
   }, [visible, initialIndex]);
 
-  const handleScroll = (e) => {
-    const offset = e.nativeEvent.contentOffset.x;
+  const updateIndexFromOffset = (offset) => {
     const idx = Math.round(offset / ITEM_WIDTH);
     const clamped = Math.max(0, Math.min(items.length - 1, idx));
-    if (clamped !== activeIndex) setActiveIndex(clamped);
+    setActiveIndex(clamped);
   };
 
   const handleConfirm = () => {
@@ -74,12 +72,18 @@ export default function WheelPickerModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+      {/*
+        Sibling layout: a full-screen backdrop sits behind the sheet, and the
+        sheet is a plain View so the inner FlatList can claim the scroll
+        responder without a wrapping Pressable hijacking the gesture.
+      */}
+      <View style={styles.root}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+
+        <View style={styles.sheet}>
           <Text style={styles.title}>{title}</Text>
 
           <View style={styles.wheelBox}>
-            {/* Center marker — vertical lines flanking the snapped item */}
             <View style={styles.centerMarker} pointerEvents="none" />
 
             <FlatList
@@ -89,20 +93,26 @@ export default function WheelPickerModal({
               horizontal
               showsHorizontalScrollIndicator={false}
               snapToInterval={ITEM_WIDTH}
+              snapToAlignment="start"
               decelerationRate="fast"
               contentContainerStyle={{ paddingHorizontal: SIDE_PAD }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
+              onMomentumScrollEnd={(e) =>
+                updateIndexFromOffset(e.nativeEvent.contentOffset.x)
+              }
+              onScrollEndDrag={(e) =>
+                updateIndexFromOffset(e.nativeEvent.contentOffset.x)
+              }
               getItemLayout={(_, index) => ({
                 length: ITEM_WIDTH,
                 offset: ITEM_WIDTH * index,
                 index,
               })}
+              extraData={activeIndex}
               renderItem={({ item, index }) => {
                 const distance = Math.abs(index - activeIndex);
                 const isActive = distance === 0;
                 const opacity =
-                  isActive ? 1 : Math.max(0.15, 0.55 - distance * 0.12);
+                  isActive ? 1 : Math.max(0.18, 0.6 - distance * 0.12);
                 return (
                   <View style={[styles.item, { opacity }]}>
                     <Text
@@ -129,17 +139,17 @@ export default function WheelPickerModal({
               <Text style={styles.confirmText}>SET</Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: CREAM,
@@ -176,7 +186,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderColor: ACCENT,
-    zIndex: 1,
   },
 
   item: {

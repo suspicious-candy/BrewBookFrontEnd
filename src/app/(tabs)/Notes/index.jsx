@@ -37,7 +37,13 @@ function brewerName(note) {
 }
 
 function beanName(note) {
-  return note.Recipe?.bean?.Name || 'UNKNOWN BEAN';
+  // Bean docs store the name at .details.Name. Fall back to .Name in case an
+  // older record was inserted without the nested shape.
+  return (
+    note.Recipe?.bean?.details?.Name ||
+    note.Recipe?.bean?.Name ||
+    'UNKNOWN BEAN'
+  );
 }
 
 function tastingLine(note) {
@@ -70,7 +76,10 @@ export default function NotesJournal() {
   // Unique filter options derived from the data
   const beanOptions = useMemo(() => {
     const s = new Set();
-    notes?.forEach((n) => n.Recipe?.bean?.Name && s.add(n.Recipe.bean.Name));
+    notes?.forEach((n) => {
+      const name = n.Recipe?.bean?.details?.Name ?? n.Recipe?.bean?.Name;
+      if (name) s.add(name);
+    });
     return Array.from(s).sort();
   }, [notes]);
 
@@ -85,7 +94,9 @@ export default function NotesJournal() {
     if (!notes) return [];
     const q = search.trim().toLowerCase();
     return notes.filter((n) => {
-      if (beanFilter   && n.Recipe?.bean?.Name   !== beanFilter)   return false;
+      const noteBeanName =
+        n.Recipe?.bean?.details?.Name ?? n.Recipe?.bean?.Name;
+      if (beanFilter   && noteBeanName !== beanFilter) return false;
       if (brewerFilter && n.Recipe?.Brewer?.Name !== brewerFilter) return false;
       if (!q) return true;
       const hay = [

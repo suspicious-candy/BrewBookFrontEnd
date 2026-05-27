@@ -213,10 +213,11 @@ function BeanCard({ bean }) {
   const pct = Math.max(0, Math.min(1, remaining / DEFAULT_CAPACITY_G));
   const roast = d.tasteProfile?.Roast ?? 'none';
   const notes = d.tasteProfile?.tastingNotes?.join(', ') || 'No notes';
+  const isEmpty = remaining <= 0;
 
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, isEmpty && styles.cardEmpty]}
       onPress={() =>
         router.push({
           pathname: '/BeanInventory/[BeanId]',
@@ -231,7 +232,10 @@ function BeanCard({ bean }) {
         <Ionicons name={roastIconName(roast)} size={14} color="#5a5a5a" />
       </View>
 
-      <Text style={styles.beanName} numberOfLines={2}>
+      <Text
+        style={[styles.beanName, isEmpty && styles.textEmpty]}
+        numberOfLines={2}
+      >
         {d.Name}
       </Text>
 
@@ -245,13 +249,32 @@ function BeanCard({ bean }) {
         </Text>
       ) : null}
 
+      {isEmpty ? (
+        <View style={styles.depletedBadge}>
+          <Ionicons name="alert-circle" size={12} color="#fff" />
+          <Text style={styles.depletedBadgeText}>DEPLETED</Text>
+        </View>
+      ) : null}
+
       <View style={styles.depletionBox}>
-        <Text style={styles.depletionLabel}>
+        <Text
+          style={[styles.depletionLabel, isEmpty && styles.textEmpty]}
+        >
           DEPLETION{' '}
-          <Text style={styles.depletionGrams}>{remaining}G LEFT</Text>
+          <Text
+            style={[styles.depletionGrams, isEmpty && styles.textEmpty]}
+          >
+            {remaining}G LEFT
+          </Text>
         </Text>
         <View style={styles.barTrack}>
-          <View style={[styles.barFill, { width: `${pct * 100}%` }]} />
+          <View
+            style={[
+              styles.barFill,
+              { width: `${pct * 100}%` },
+              isEmpty && styles.barFillEmpty,
+            ]}
+          />
         </View>
       </View>
     </Pressable>
@@ -431,5 +454,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     fontSize: 12,
+  },
+
+  cardEmpty: {
+    backgroundColor: '#fbe6e0',
+    borderColor: ACCENT,
+  },
+  textEmpty: { color: ACCENT },
+  depletedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: ACCENT,
+    marginTop: 6,
+  },
+  depletedBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+  barFillEmpty: {
+    backgroundColor: ACCENT,
+    opacity: 1,
   },
 });

@@ -537,7 +537,7 @@ export default function AddRecipe() {
           visible={wheelOpen === 'temp'}
           title="WATER TEMPERATURE"
           unit="°C"
-          min={80}
+          min={50}
           max={100}
           step={1}
           value={Number(waterTemp) || 93}

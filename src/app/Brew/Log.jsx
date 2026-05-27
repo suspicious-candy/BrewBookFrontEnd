@@ -21,16 +21,24 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
 
 // ---------- API ----------
-async function patchNote({ id, body }) {
-  const { data } = await apiClient.patch(`/notes/${id}`, body);
+// Backend exposes PUT /notes/:id (not PATCH). findOneAndUpdate only writes
+// the keys we send, so this is effectively a partial update.
+async function saveNote({ id, body }) {
+  const { data } = await apiClient.put(`/notes/${id}`, body);
   return data;
 }
 
-async function decrementBean({ beanId, grams }) {
-  // Optional: backend should decrement Quantity by `grams` for this bean.
+// Best-effort: there's no /beans/:id/consume endpoint yet, so we swallow
+// failures here instead of failing the whole save flow.
+async function tryDecrementBean({ beanId, grams }) {
   if (!beanId || !grams) return null;
-  const { data } = await apiClient.patch(`/beans/${beanId}/consume`, { grams });
-  return data;
+  try {
+    const { data } = await apiClient.patch(`/beans/${beanId}/consume`, { grams });
+    return data;
+  } catch (err) {
+    console.warn('Bean consume endpoint failed (non-fatal)', err?.message);
+    return null;
+  }
 }
 
 // ---------- Screen ----------
@@ -52,7 +60,7 @@ export default function BrewLog() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const updated = await patchNote({
+      const updated = await saveNote({
         id: notesId,
         body: {
           acidity,
@@ -71,10 +79,8 @@ export default function BrewLog() {
             .filter(Boolean),
         },
       });
-      // Optional: decrement the bean's stock by the dose used (uses Notes.CoffeeIn)
-      if (updated?.CoffeeIn && beanId) {
-        await decrementBean({ beanId, grams: updated.CoffeeIn });
-      }
+      // Bean stock is already decremented at the Confirm-Parameters step in
+      // /Brew/config, so we don't touch it again here.
       return updated;
     },
     onSuccess: () => {
@@ -138,7 +144,9 @@ export default function BrewLog() {
         <View style={styles.footer}>
           {saveMutation.isError && (
             <Text style={styles.errorText}>
-              Couldn't save. Tap again to retry.
+              {saveMutation.error?.response?.data?.message ??
+                saveMutation.error?.message ??
+                "Couldn't save. Tap again to retry."}
             </Text>
           )}
           <Pressable
@@ -220,7 +228,7 @@ function DoneOverlay({ visible }) {
   // Auto-redirect to home after a moment
   useEffect(() => {
     if (!visible) return;
-    const t = setTimeout(() => router.replace('/'), 2400);
+    const t = setTimeout(() => router.replace('/Dashboard'), 2400);
     return () => clearTimeout(t);
   }, [visible]);
 
@@ -241,7 +249,7 @@ function DoneOverlay({ visible }) {
 
           <Pressable
             style={styles.doneBtn}
-            onPress={() => router.replace('/')}
+            onPress={() => router.replace('/Dashboard')}
           >
             <Text style={styles.doneBtnText}>BACK TO HOME</Text>
           </Pressable>

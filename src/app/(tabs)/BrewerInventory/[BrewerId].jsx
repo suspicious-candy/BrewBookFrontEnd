@@ -240,16 +240,22 @@ export default function BrewerDetail() {
       ) : (
         <View style={styles.recipesEmpty}>
           <Text style={styles.emptyText}>No recipes paired yet.</Text>
-          <Pressable
-            style={styles.retryBtn}
-            onPress={() =>
-              router.push(`/Recipe/addRecipe?brewerId=${brewer.BrewerID}`)
-            }
-          >
-            <Text style={styles.retryText}>Pair a Recipe</Text>
-          </Pressable>
         </View>
       )}
+
+      {/* Persistent "add another recipe" button — visible whether or not
+          the list is empty so users can keep adding to a brewer. */}
+      <Pressable
+        style={styles.addRecipeBtn}
+        onPress={() =>
+          router.push(`/Recipe/addRecipe?brewerId=${brewer.BrewerID}`)
+        }
+      >
+        <Ionicons name="add" size={16} color="#fff" />
+        <Text style={styles.addRecipeText}>
+          {recipes && recipes.length > 0 ? 'ADD ANOTHER RECIPE' : 'PAIR A RECIPE'}
+        </Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -265,30 +271,28 @@ function SectionHeader({ icon, label }) {
 }
 
 function RecipeRow({ recipe }) {
-  const roast = (recipe.roastLevel || 'medium').toLowerCase();
-  const dim = roast === 'dark' || roast === 'french';
-  const ratio =
-    recipe.ratio || ratioOf(recipe.coffeeGrams, recipe.waterGrams) || '—';
+  const dose = recipe.CoffeeIn ?? recipe.coffeeGrams;
+  const water = recipe.WaterIn ?? recipe.waterGrams;
+  const ratio = ratioOf(dose, water) || '—';
+  const name = recipe.Name ?? recipe.name ?? recipe.RecipeBody ?? 'Untitled recipe';
 
   return (
     <Pressable
-      style={[styles.recipeRow, dim && styles.recipeRowDim]}
-      onPress={() => router.push(`/Brew/selection?recipeId=${recipe._id}`)}
+      style={styles.recipeRow}
+      onPress={() => router.push(`/Brew/config?recipeId=${recipe.ID ?? recipe._id}`)}
     >
       <View style={{ flex: 1 }}>
-        <Text style={[styles.recipeRoast, dim && styles.textDim]}>
-          {roast.toUpperCase()} ROAST
+        <Text style={styles.recipeName} numberOfLines={1}>
+          {name}
         </Text>
-        <Text style={[styles.recipeName, dim && styles.textDim]}>
-          {recipe.name}
-        </Text>
-        <Text style={[styles.recipeMeta, dim && styles.textDim]}>
-          {recipe.coffeeGrams}g Coffee / {recipe.waterGrams}g Water
+        <Text style={styles.recipeMeta} numberOfLines={1}>
+          {dose ?? '—'}g Coffee · {water ?? '—'}g Water
+          {recipe.WaterTemp ? ` · ${recipe.WaterTemp}°C` : ''}
         </Text>
       </View>
       <View style={styles.ratioBox}>
-        <Text style={[styles.ratioValue, dim && styles.textDim]}>{ratio}</Text>
-        <Text style={[styles.ratioLabel, dim && styles.textDim]}>RATIO</Text>
+        <Text style={styles.ratioValue}>{ratio}</Text>
+        <Text style={styles.ratioLabel}>RATIO</Text>
       </View>
     </Pressable>
   );
@@ -515,6 +519,23 @@ const styles = StyleSheet.create({
 
   recipesLoading: { padding: 20, alignItems: 'center' },
   recipesEmpty: { padding: 20, alignItems: 'center', gap: 10 },
+
+  addRecipeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: 14,
+    marginTop: 12,
+    paddingVertical: 14,
+    backgroundColor: ACCENT,
+  },
+  addRecipeText: {
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 2,
+    fontSize: 12,
+  },
 
   errorText: { color: INK, marginBottom: 12 },
   retryBtn: {

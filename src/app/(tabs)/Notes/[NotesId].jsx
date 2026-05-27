@@ -104,7 +104,10 @@ export default function NoteDetail() {
     );
   }
 
-  const beanName   = note.Recipe?.bean?.Name   || 'Unknown Bean';
+  const beanName =
+    note.Recipe?.bean?.details?.Name ||
+    note.Recipe?.bean?.Name ||
+    'Unknown Bean';
   const brewerName = note.Recipe?.Brewer?.Name || 'Unknown Brewer';
   const recipeNum  = note.Recipe?.ID ? `RECIPE #${String(note.Recipe.ID).padStart(3, '0')}` : '';
   const tracked    = paramEntries(note.trackedParameters);

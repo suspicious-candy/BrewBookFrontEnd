@@ -7,9 +7,10 @@ import {
   Pressable,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import apiClient from '@/api/client';
@@ -85,14 +86,49 @@ function formatDate(d) {
   });
 }
 
+async function deleteBeanRequest(id) {
+  const { data } = await apiClient.delete(`/beans/${id}`);
+  return data;
+}
+
 // ---------- Screen ----------
 export default function BeanDetail() {
   const { BeanId: id } = useLocalSearchParams();
+  const qc = useQueryClient();
 
   const { data: bean, isLoading, isError, refetch } = useQuery({
     queryKey: ['bean', id],
     queryFn: () => fetchBean(id),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteBeanRequest(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['beans'] });
+      qc.removeQueries({ queryKey: ['bean', id] });
+      router.replace('/BeanInventory');
+    },
+    onError: (err) => {
+      const msg =
+        err?.response?.data?.message ?? err?.message ?? 'Could not delete bean.';
+      Alert.alert('Delete failed', msg);
+    },
+  });
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete this bean?',
+      "This removes the bean from your ledger. Past notes that reference it will still keep their data.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(),
+        },
+      ],
+    );
+  };
 
   if (isLoading) {
     return (
@@ -214,6 +250,22 @@ export default function BeanDetail() {
           </Text>
         </View>
       )}
+
+      {/* Delete bean */}
+      <Pressable
+        style={[styles.deleteBtn, deleteMutation.isPending && { opacity: 0.5 }]}
+        onPress={confirmDelete}
+        disabled={deleteMutation.isPending}
+      >
+        {deleteMutation.isPending ? (
+          <ActivityIndicator size="small" color={ACCENT} />
+        ) : (
+          <>
+            <Ionicons name="trash-outline" size={16} color={ACCENT} />
+            <Text style={styles.deleteText}>DELETE BEAN</Text>
+          </>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -420,4 +472,22 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   retryText: { color: '#fff', fontWeight: '600' },
+
+  deleteBtn: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 14,
+    marginTop: 24,
+    paddingVertical: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: ACCENT,
+  },
+  deleteText: {
+    color: ACCENT,
+    fontWeight: '700',
+    letterSpacing: 2,
+    fontSize: 12,
+  },
 });

@@ -1,18 +1,19 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+// expo-router reads this on first mount to decide which tab is selected
+// before any navigation has happened.
+export const unstable_settings = {
+  initialRouteName: 'Dashboard',
+};
+
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#c0432b' }}>
-      <Tabs.Screen
-        name="(home)"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
-        }}
-      />
+    <Tabs
+      // Order shown left → right in the tab bar.
+      // Order: Beans · Brewers · Dashboard · Notes · Profile
+      screenOptions={{ headerShown: false, tabBarActiveTintColor: '#c0432b' }}
+    >
       <Tabs.Screen
         name="BeanInventory"
         options={{
@@ -28,6 +29,15 @@ export default function TabsLayout() {
           title: 'Brewers',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="flask-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="Dashboard"
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />

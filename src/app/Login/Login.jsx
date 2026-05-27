@@ -22,7 +22,7 @@ export default function BrewLedgerLogin() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated) router.replace('/User');
+    if (isAuthenticated) router.replace('/Dashboard');
   }, [isAuthenticated, router]);
 
   const handleLogin = async () => {

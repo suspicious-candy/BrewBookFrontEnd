@@ -104,7 +104,10 @@ export default function Dashboard() {
   }
 
   const { user, lastBrew, brewsToday, streak, beanSupply } = data;
-  const beanName   = lastBrew?.Recipe?.bean?.Name   || 'Unknown Bean';
+  const beanName =
+    lastBrew?.Recipe?.bean?.details?.Name ||
+    lastBrew?.Recipe?.bean?.Name ||
+    'Unknown Bean';
   const brewerName = lastBrew?.Recipe?.Brewer?.Name || 'Unknown Brewer';
   console.log(data);
 
