@@ -107,41 +107,9 @@ export default function Profile() {
         {/* Preferences */}
         <SectionHeader label="PREFERENCES" />
         <View style={styles.prefBox}>
-          <PrefRow
-            label="FAVORITE BEAN"
-            value={stats?.favoriteBean || '—'}
-            onPress={
-              stats?.favoriteBeanId
-                ? () =>
-                    router.push({
-                      pathname: '/BeanInventory/[BeanId]',
-                      params: { BeanId: stats.favoriteBeanId },
-                    })
-                : null
-            }
-          />
-          <PrefRow
-            label="FAVORITE BREWER"
-            value={stats?.favoriteBrewer || '—'}
-            onPress={
-              stats?.favoriteBrewerId
-                ? () =>
-                    router.push({
-                      pathname: '/BrewerInventory/[BrewerId]',
-                      params: { BrewerId: stats.favoriteBrewerId },
-                    })
-                : null
-            }
-          />
-          <PrefRow
-            label="MOST USED RECIPE"
-            value={stats?.favoriteRecipe || '—'}
-            onPress={
-              stats?.favoriteRecipeId
-                ? () => router.push(`/Brew/selection?recipeId=${stats.favoriteRecipeId}`)
-                : null
-            }
-          />
+          <PrefRow label="FAVORITE BEAN" value={stats?.favoriteBean || '—'} />
+          <PrefRow label="FAVORITE BREWER" value={stats?.favoriteBrewer || '—'} />
+          <PrefRow label="MOST USED RECIPE" value={stats?.favoriteRecipe || '—'} />
         </View>
 
         {/* Account metadata */}
@@ -149,7 +117,6 @@ export default function Profile() {
         <View style={styles.prefBox}>
           <PrefRow label="MEMBER SINCE" value={fmtDate(user.createdAt)} />
           <PrefRow label="LAST LOGIN"   value={fmtDate(user.LoginData?.lastLogin)} />
-          <PrefRow label="USER ID"      value={`#${String(user.UserID).padStart(4, '0')}`} />
         </View>
 
         {/* Sign out */}

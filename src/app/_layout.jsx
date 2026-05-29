@@ -20,6 +20,7 @@ function RootStack() {
   return (
     <View style={{ flex: 1, paddingTop: insets.top }}>
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="Login" />
         <Stack.Screen name="Brew" />

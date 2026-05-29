@@ -97,11 +97,23 @@ export default function RecipeConfig() {
     enabled: !!recipeId,
   });
 
-  const { data: brewer } = useQuery({
-    queryKey: ['brewer', brewerId ?? recipe?.Brewer],
-    queryFn: () => fetchBrewer(brewerId ?? recipe?.Brewer),
-    enabled: !!(brewerId || recipe?.Brewer),
+  // The recipe arrives with its Brewer populated, so prefer that. Only fetch by
+  // id when handed an explicit numeric brewerId param — GET /brewers/:id keys on
+  // the numeric BrewerID, not the ObjectId, so passing recipe.Brewer would 404.
+  const populatedBrewer =
+    recipe?.Brewer && typeof recipe.Brewer === 'object' ? recipe.Brewer : null;
+
+  const { data: fetchedBrewer } = useQuery({
+    queryKey: ['brewer', brewerId],
+    queryFn: () => fetchBrewer(brewerId),
+    enabled: !!brewerId,
   });
+
+  const brewer = fetchedBrewer ?? populatedBrewer;
+
+  // Numeric BrewerID used to attribute the brew: URL param wins, else the
+  // resolved brewer's own id.
+  const resolvedBrewerId = brewerId ? Number(brewerId) : brewer?.BrewerID;
 
   const { data: beans } = useQuery({
     queryKey: ['beans', 'user', email],
@@ -115,7 +127,10 @@ export default function RecipeConfig() {
     if (beanIdFromUrl) {
       setChosenBeanRef({ kind: 'beanId', value: Number(beanIdFromUrl) });
     } else if (recipe?.bean) {
-      setChosenBeanRef({ kind: 'objectId', value: recipe.bean });
+      // recipe.bean may be populated (object) or a raw ObjectId.
+      const beanRef =
+        typeof recipe.bean === 'object' ? recipe.bean._id : recipe.bean;
+      setChosenBeanRef({ kind: 'objectId', value: beanRef });
     }
   }
 
@@ -175,7 +190,7 @@ export default function RecipeConfig() {
         Recipe: recipe?._id,
         recipeId: recipe?.ID,
         beanId: selectedBean?.beanId,
-        brewerId: brewerId ? Number(brewerId) : undefined,
+        brewerId: resolvedBrewerId,
         CoffeeIn:  params.CoffeeIn,
         WaterIn:   params.WaterIn,
         WaterTemp: params.WaterTemp,
@@ -209,7 +224,7 @@ export default function RecipeConfig() {
         params: {
           notesId: notes.ID,
           recipeId: recipe?.ID,
-          brewerId,
+          brewerId: resolvedBrewerId,
           beanId: selectedBean?.beanId,
         },
       });
@@ -485,8 +500,11 @@ export default function RecipeConfig() {
         </Pressable>
       </View>
 
-      {/* Picker modal — numeric values */}
+      {/* Picker modal — numeric values. Keyed by field so each open remounts
+          with fresh scroll position and temp value instead of leaking the
+          previous field's selection. */}
       <PickerModal
+        key={picker ? picker.field : 'picker-closed'}
         config={picker}
         onClose={() => setPicker(null)}
         onSelect={(v) => {
@@ -612,15 +630,18 @@ function BeanPickerModal({ visible, beans, selectedId, onClose, onSelect }) {
 const ITEM_WIDTH = 80;
 
 function PickerModal({ config, onClose, onSelect }) {
-  const visible = !!config;
-  const scrollX = useRef(new Animated.Value(0)).current;
+  // Seed scrollX with the selected item's offset so the wheel renders already
+  // centered on the current value — scrollX drives the opacity/scale highlight,
+  // and starting at 0 would otherwise spotlight the wrong (first) item on open.
+  const values = config?.values ?? [];
+  const initialIndex = Math.max(0, values.indexOf(config?.initial));
+  const scrollX = useRef(new Animated.Value(initialIndex * ITEM_WIDTH)).current;
   const listRef = useRef(null);
   const [tempValue, setTempValue] = useState(config?.initial);
 
-  if (!visible) return null;
+  if (!config) return null;
 
-  const { values, initial, label, unit } = config;
-  const initialIndex = Math.max(0, values.indexOf(initial));
+  const { initial, label, unit } = config;
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -638,7 +659,7 @@ function PickerModal({ config, onClose, onSelect }) {
     <Modal
       transparent
       animationType="fade"
-      visible={visible}
+      visible
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>

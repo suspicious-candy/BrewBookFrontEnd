@@ -94,6 +94,8 @@ export default function NotesJournal() {
     if (!notes) return [];
     const q = search.trim().toLowerCase();
     return notes.filter((n) => {
+      // Only show brews that were actually rated.
+      if (typeof n.overallRating !== 'number') return false;
       const noteBeanName =
         n.Recipe?.bean?.details?.Name ?? n.Recipe?.bean?.Name;
       if (beanFilter   && noteBeanName !== beanFilter) return false;
@@ -187,11 +189,6 @@ export default function NotesJournal() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      {/* FAB — pick a brewer to start the brew flow */}
-      <Pressable style={styles.fab} onPress={() => router.push('/BrewerInventory')}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </Pressable>
-
       {/* Filter picker modal */}
       <FilterModal
         title={picker === 'bean' ? 'FILTER BY BEAN' : 'FILTER BY BREWER'}
@@ -212,11 +209,10 @@ export default function NotesJournal() {
 // ---------- Subcomponents ----------
 function NoteRow({ note }) {
   const rating = note.overallRating ?? null;
-  const dim = rating != null && rating < 7;
 
   return (
     <Pressable
-      style={[styles.row, dim && styles.rowDim]}
+      style={styles.row}
       onPress={() =>
         router.push({
           pathname: '/Notes/[NotesId]',
@@ -226,34 +222,30 @@ function NoteRow({ note }) {
     >
       <View style={{ flex: 1, paddingRight: 10 }}>
         <View style={styles.rowTopLine}>
-          <Text style={[styles.dateText, dim && styles.textDim]}>
-            {fmtDate(note.Date)}
-          </Text>
-          <Text style={[styles.bulletText, dim && styles.textDim]}>•</Text>
+          <Text style={styles.dateText}>{fmtDate(note.Date)}</Text>
+          <Text style={styles.bulletText}>•</Text>
           <Ionicons
             name={brewerIconName(note.Recipe?.Brewer?.Type)}
             size={11}
-            color={dim ? '#a9a395' : MUTED}
+            color={MUTED}
           />
-          <Text style={[styles.brewerText, dim && styles.textDim]}>
-            {brewerName(note).toUpperCase()}
-          </Text>
+          <Text style={styles.brewerText}>{brewerName(note).toUpperCase()}</Text>
         </View>
 
-        <Text style={[styles.beanText, dim && styles.textDim]} numberOfLines={1}>
+        <Text style={styles.beanText} numberOfLines={1}>
           {beanName(note)}
         </Text>
 
-        <Text style={[styles.notesText, dim && styles.textDim]} numberOfLines={1}>
+        <Text style={styles.notesText} numberOfLines={1}>
           {tastingLine(note)}
         </Text>
       </View>
 
-      <View style={[styles.ratingBox, dim && styles.ratingBoxDim]}>
-        <Text style={[styles.ratingValue, dim && styles.textDim]}>
+      <View style={styles.ratingBox}>
+        <Text style={styles.ratingValue}>
           {rating != null ? rating.toFixed(1) : '—'}
         </Text>
-        <Text style={[styles.ratingLabel, dim && styles.textDim]}>RATING</Text>
+        <Text style={styles.ratingLabel}>RATING</Text>
       </View>
     </Pressable>
   );
@@ -327,7 +319,6 @@ function FilterModal({ title, options, visible, current, onClose, onPick }) {
 // ---------- Styles ----------
 const CREAM = '#f3eee5';
 const CARD = '#faf6ed';
-const CARD_DIM = '#ece6d6';
 const ACCENT = '#c0432b';
 const TINT  = '#f1dad2';
 const INK = '#1f1f1f';
@@ -395,7 +386,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: CARD,
   },
-  rowDim: { backgroundColor: CARD_DIM },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: BORDER,
@@ -425,28 +415,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#e9c4b8',
   },
-  ratingBoxDim: { backgroundColor: '#ece0d9', borderColor: '#d6c9c0' },
   ratingValue: { fontSize: 16, fontWeight: '700', color: INK },
   ratingLabel: {
     fontSize: 9, color: MUTED, letterSpacing: 1.5, fontWeight: '700', marginTop: 2,
-  },
-
-  textDim: { color: '#a9a395' },
-
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    alignSelf: 'center',
-    width: 48,
-    height: 48,
-    backgroundColor: ACCENT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
   },
 
   empty: { padding: 30, alignItems: 'center' },

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TextInput,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,20 @@ async function fetchMyBrewers() {
   const { data } = await apiClient.get('/brewers/me');
   return data;
 }
+
+// Notes feed the usage + recency sorts (count and most-recent brew per brewer).
+async function fetchNotes() {
+  const { data } = await apiClient.get('/notes');
+  return data;
+}
+
+const SORT_MODES = [
+  { key: 'name-asc',    label: 'Name (A–Z)',                short: 'A-Z' },
+  { key: 'name-desc',   label: 'Name (Z–A)',                short: 'Z-A' },
+  { key: 'type',        label: 'Type',                      short: 'TYPE' },
+  { key: 'used-asc',    label: 'Least → Most Used',         short: 'USAGE' },
+  { key: 'recency-asc', label: 'Least → Most Recently Used', short: 'RECENT' },
+];
 
 // ---------- Helpers ----------
 function typeIconName(type) {
@@ -56,7 +71,8 @@ function capitalize(s) {
 
 // ---------- Screen ----------
 export default function BrewerInventory() {
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortMode, setSortMode] = useState('name-asc');
+  const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState('');
 
   const { data: brewers, isLoading, isError, refetch, isRefetching } = useQuery({
@@ -64,17 +80,55 @@ export default function BrewerInventory() {
     queryFn: fetchMyBrewers,
   });
 
+  const { data: notes } = useQuery({
+    queryKey: ['notes'],
+    queryFn: fetchNotes,
+  });
+
+  // count = how many notes reference each brewer; recency = newest note date.
+  const { usage, recency } = useMemo(() => {
+    const usage = new Map();
+    const recency = new Map();
+    notes?.forEach((n) => {
+      const id = n.Recipe?.Brewer?._id;
+      if (!id) return;
+      usage.set(id, (usage.get(id) ?? 0) + 1);
+      const t = n.Date ? new Date(n.Date).getTime() : 0;
+      if (t > (recency.get(id) ?? 0)) recency.set(id, t);
+    });
+    return { usage, recency };
+  }, [notes]);
+
   const sortedBrewers = useMemo(() => {
     if (!brewers) return [];
     const filtered = brewers.filter((b) =>
       (b.Name ?? '').toLowerCase().includes(query.toLowerCase())
     );
-    return [...filtered].sort((a, b) =>
-      sortAsc
-        ? (a.Name ?? '').localeCompare(b.Name ?? '')
-        : (b.Name ?? '').localeCompare(a.Name ?? '')
-    );
-  }, [brewers, sortAsc, query]);
+    const byName = (a, b) => (a.Name ?? '').localeCompare(b.Name ?? '');
+    const arr = [...filtered];
+    switch (sortMode) {
+      case 'name-desc':
+        return arr.sort((a, b) => byName(b, a));
+      case 'type':
+        return arr.sort(
+          (a, b) => (a.Type ?? '').localeCompare(b.Type ?? '') || byName(a, b)
+        );
+      case 'used-asc':
+        return arr.sort(
+          (a, b) => (usage.get(a._id) ?? 0) - (usage.get(b._id) ?? 0) || byName(a, b)
+        );
+      case 'recency-asc':
+        return arr.sort(
+          (a, b) => (recency.get(a._id) ?? 0) - (recency.get(b._id) ?? 0) || byName(a, b)
+        );
+      case 'name-asc':
+      default:
+        return arr.sort(byName);
+    }
+  }, [brewers, sortMode, query, usage, recency]);
+
+  const sortShort =
+    SORT_MODES.find((m) => m.key === sortMode)?.short ?? '';
 
   if (isLoading) {
     return (
@@ -100,7 +154,7 @@ export default function BrewerInventory() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Brewers</Text>
-        <Pressable onPress={() => setSortAsc((s) => !s)} hitSlop={10}>
+        <Pressable onPress={() => setSortOpen(true)} hitSlop={10}>
           <Ionicons name="options-outline" size={22} color={INK} />
         </Pressable>
       </View>
@@ -110,7 +164,7 @@ export default function BrewerInventory() {
         <Text style={styles.metaText}>
           RACK // {sortedBrewers.length} ENTRIES
         </Text>
-        <Text style={styles.metaText}>SORT: {sortAsc ? 'A-Z' : 'Z-A'}</Text>
+        <Text style={styles.metaText}>SORT: {sortShort}</Text>
       </View>
 
       {/* Search */}
@@ -151,7 +205,46 @@ export default function BrewerInventory() {
       >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
+
+      {/* Sort dropdown */}
+      <SortModal
+        visible={sortOpen}
+        current={sortMode}
+        onClose={() => setSortOpen(false)}
+        onPick={(key) => {
+          setSortMode(key);
+          setSortOpen(false);
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+// ---------- Sort modal ----------
+function SortModal({ visible, current, onClose, onPick }) {
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.modalLabel}>SORT BREWERS</Text>
+          {SORT_MODES.map((m) => (
+            <Pressable key={m.key} onPress={() => onPick(m.key)} style={styles.modalRow}>
+              <Text
+                style={[
+                  styles.modalRowText,
+                  m.key === current && styles.modalRowTextActive,
+                ]}
+              >
+                {m.label}
+              </Text>
+              {m.key === current ? (
+                <Ionicons name="checkmark" size={16} color={ACCENT} />
+              ) : null}
+            </Pressable>
+          ))}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -352,4 +445,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
+
+  // sort modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 12, 8, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: CARD,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: BORDER,
+  },
+  modalLabel: {
+    textAlign: 'center',
+    fontSize: 11,
+    letterSpacing: 2,
+    color: MUTED,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  modalRowText: { fontSize: 14, color: INK },
+  modalRowTextActive: { color: ACCENT, fontWeight: '700' },
 });

@@ -27,6 +27,33 @@ async function fetchBeans() {
   return data; // array of bean documents (see schema)
 }
 
+// Notes feed the usage + recency sorts (count and most-recent brew per bean).
+async function fetchNotes() {
+  const { data } = await apiClient.get('/notes');
+  return data;
+}
+
+// Roast levels ordered lightest → darkest for the "by roast type" sort.
+const ROAST_ORDER = {
+  green: 0,
+  light: 1,
+  'medium-light': 2,
+  medium: 3,
+  'dark-medium': 4,
+  dark: 5,
+  french: 6,
+};
+
+const SORT_MODES = [
+  { key: 'name-asc',       label: 'Name (A–Z)',                 short: 'A-Z' },
+  { key: 'name-desc',      label: 'Name (Z–A)',                 short: 'Z-A' },
+  { key: 'roast',          label: 'Roast (Light → Dark)',       short: 'ROAST' },
+  { key: 'used-asc',       label: 'Least → Most Used',          short: 'USAGE' },
+  { key: 'recency-asc',    label: 'Least → Most Recently Used', short: 'RECENT' },
+  { key: 'roastdate-asc',  label: 'Roast Date (Oldest First)',  short: 'OLDEST' },
+  { key: 'roastdate-desc', label: 'Roast Date (Newest First)',  short: 'NEWEST' },
+];
+
 // ---------- Helpers ----------
 function roastIconName(roast) {
   switch (roast) {
@@ -58,7 +85,8 @@ function originLabel(origin) {
 
 // ---------- Screen ----------
 export default function BeanInventory() {
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortMode, setSortMode] = useState('name-asc');
+  const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
@@ -67,17 +95,61 @@ export default function BeanInventory() {
     queryFn: fetchBeans,
   });
 
+  const { data: notes } = useQuery({
+    queryKey: ['notes'],
+    queryFn: fetchNotes,
+  });
+
+  // count = how many notes reference each bean; recency = newest note date.
+  const { usage, recency } = useMemo(() => {
+    const usage = new Map();
+    const recency = new Map();
+    notes?.forEach((n) => {
+      const id = n.Recipe?.bean?._id;
+      if (!id) return;
+      usage.set(id, (usage.get(id) ?? 0) + 1);
+      const t = n.Date ? new Date(n.Date).getTime() : 0;
+      if (t > (recency.get(id) ?? 0)) recency.set(id, t);
+    });
+    return { usage, recency };
+  }, [notes]);
+
   const sortedBeans = useMemo(() => {
     if (!beans) return [];
     const filtered = beans.filter((b) =>
       (b.details?.Name ?? '').toLowerCase().includes(query.toLowerCase())
     );
-    return [...filtered].sort((a, b) =>
-      sortAsc
-        ? (a.details?.Name ?? '').localeCompare(b.details?.Name ?? '')
-        : (b.details?.Name ?? '').localeCompare(a.details?.Name ?? '')
-    );
-  }, [beans, sortAsc, query]);
+    const byName = (a, b) =>
+      (a.details?.Name ?? '').localeCompare(b.details?.Name ?? '');
+    const roastRank = (b) => ROAST_ORDER[b.details?.tasteProfile?.Roast] ?? 99;
+    const roastDate = (b) =>
+      b.details?.RoastDate ? new Date(b.details.RoastDate).getTime() : 0;
+    const arr = [...filtered];
+    switch (sortMode) {
+      case 'name-desc':
+        return arr.sort((a, b) => byName(b, a));
+      case 'roast':
+        return arr.sort((a, b) => roastRank(a) - roastRank(b) || byName(a, b));
+      case 'used-asc':
+        return arr.sort(
+          (a, b) => (usage.get(a._id) ?? 0) - (usage.get(b._id) ?? 0) || byName(a, b)
+        );
+      case 'recency-asc':
+        return arr.sort(
+          (a, b) => (recency.get(a._id) ?? 0) - (recency.get(b._id) ?? 0) || byName(a, b)
+        );
+      case 'roastdate-asc':
+        return arr.sort((a, b) => roastDate(a) - roastDate(b) || byName(a, b));
+      case 'roastdate-desc':
+        return arr.sort((a, b) => roastDate(b) - roastDate(a) || byName(a, b));
+      case 'name-asc':
+      default:
+        return arr.sort(byName);
+    }
+  }, [beans, sortMode, query, usage, recency]);
+
+  const sortShort =
+    SORT_MODES.find((m) => m.key === sortMode)?.short ?? '';
 
   if (isLoading) {
     return (
@@ -103,7 +175,7 @@ export default function BeanInventory() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Bean Library</Text>
-        <Pressable onPress={() => setSortAsc((s) => !s)} hitSlop={10}>
+        <Pressable onPress={() => setSortOpen(true)} hitSlop={10}>
           <Ionicons name="options-outline" size={22} color="#222" />
         </Pressable>
       </View>
@@ -113,7 +185,7 @@ export default function BeanInventory() {
         <Text style={styles.metaText}>
           CATALOG // {sortedBeans.length} ENTRIES
         </Text>
-        <Text style={styles.metaText}>SORT: {sortAsc ? 'A-Z' : 'Z-A'}</Text>
+        <Text style={styles.metaText}>SORT: {sortShort}</Text>
       </View>
 
       {/* Optional search */}
@@ -202,7 +274,45 @@ export default function BeanInventory() {
         </Pressable>
       </Modal>
 
+      {/* Sort dropdown */}
+      <SortModal
+        visible={sortOpen}
+        current={sortMode}
+        onClose={() => setSortOpen(false)}
+        onPick={(key) => {
+          setSortMode(key);
+          setSortOpen(false);
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+// ---------- Sort modal ----------
+function SortModal({ visible, current, onClose, onPick }) {
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.sortSheet} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.sortLabel}>SORT BEANS</Text>
+          {SORT_MODES.map((m) => (
+            <Pressable key={m.key} onPress={() => onPick(m.key)} style={styles.sortRow}>
+              <Text
+                style={[
+                  styles.sortRowText,
+                  m.key === current && styles.sortRowTextActive,
+                ]}
+              >
+                {m.label}
+              </Text>
+              {m.key === current ? (
+                <Ionicons name="checkmark" size={16} color={ACCENT} />
+              ) : null}
+            </Pressable>
+          ))}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -481,4 +591,30 @@ const styles = StyleSheet.create({
     backgroundColor: ACCENT,
     opacity: 1,
   },
+
+  // sort modal
+  sortSheet: {
+    backgroundColor: CARD,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#cdc7b8',
+  },
+  sortLabel: {
+    textAlign: 'center',
+    fontSize: 11,
+    letterSpacing: 2,
+    color: MUTED,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  sortRowText: { fontSize: 14, color: INK },
+  sortRowTextActive: { color: ACCENT, fontWeight: '700' },
 });

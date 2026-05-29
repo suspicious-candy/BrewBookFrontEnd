@@ -64,11 +64,19 @@ export default function BrewSession() {
     enabled: !!recipeId,
   });
 
-  const { data: brewer } = useQuery({
-    queryKey: ['brewer', brewerId ?? recipe?.Brewer],
-    queryFn: () => fetchBrewer(brewerId ?? recipe?.Brewer),
-    enabled: !!(brewerId || recipe?.Brewer),
+  // recipe.Brewer is populated by GET /recipes/:id; prefer it and only fetch by
+  // id when an explicit numeric brewerId param is present (the endpoint keys on
+  // numeric BrewerID, not the ObjectId).
+  const populatedBrewer =
+    recipe?.Brewer && typeof recipe.Brewer === 'object' ? recipe.Brewer : null;
+
+  const { data: fetchedBrewer } = useQuery({
+    queryKey: ['brewer', brewerId],
+    queryFn: () => fetchBrewer(brewerId),
+    enabled: !!brewerId,
   });
+
+  const brewer = fetchedBrewer ?? populatedBrewer;
 
   const steps = useMemo(
     () => buildSteps(recipe?.pours, recipe?.BrewTime),

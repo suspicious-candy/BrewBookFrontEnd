@@ -234,7 +234,7 @@ export default function BrewerDetail() {
       ) : recipes && recipes.length > 0 ? (
         <View style={styles.recipesBox}>
           {recipes.map((r) => (
-            <RecipeRow key={r._id} recipe={r} />
+            <RecipeRow key={r._id} recipe={r} brewerId={brewer.BrewerID} />
           ))}
         </View>
       ) : (
@@ -270,7 +270,7 @@ function SectionHeader({ icon, label }) {
   );
 }
 
-function RecipeRow({ recipe }) {
+function RecipeRow({ recipe, brewerId }) {
   const dose = recipe.CoffeeIn ?? recipe.coffeeGrams;
   const water = recipe.WaterIn ?? recipe.waterGrams;
   const ratio = ratioOf(dose, water) || '—';
@@ -279,7 +279,9 @@ function RecipeRow({ recipe }) {
   return (
     <Pressable
       style={styles.recipeRow}
-      onPress={() => router.push(`/Brew/config?recipeId=${recipe.ID ?? recipe._id}`)}
+      onPress={() =>
+        router.push(`/Brew/config?recipeId=${recipe.ID}&brewerId=${brewerId}`)
+      }
     >
       <View style={{ flex: 1 }}>
         <Text style={styles.recipeName} numberOfLines={1}>
