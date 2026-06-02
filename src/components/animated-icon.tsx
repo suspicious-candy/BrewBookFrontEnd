@@ -7,6 +7,11 @@ import { scheduleOnRN } from 'react-native-worklets';
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
+/**
+ * Full-screen solid-color overlay that scales and fades out once on mount to mask
+ * the hand-off from the native splash screen. Renders nothing after it finishes.
+ * Currently unused (Expo starter splash scaffolding).
+ */
 export function AnimatedSplashOverlay() {
   const [visible, setVisible] = useState(true);
 
@@ -80,6 +85,10 @@ const glowKeyframe = new Keyframe({
   },
 });
 
+/**
+ * The animated app icon — a slowly rotating glow behind the scaling logo — shown
+ * during the splash sequence.
+ */
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>

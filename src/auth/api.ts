@@ -9,6 +9,12 @@ if (!extra.apiBaseUrl) {
   throw new Error('Missing apiBaseUrl. Set extra.apiBaseUrl in app.json.');
 }
 
+/**
+ * Axios instance pointed at the BrewBook API (base URL from expo-constants
+ * `extra`). The request interceptor below attaches the current Supabase access
+ * token as a Bearer header on every request, so callers never handle tokens
+ * themselves.
+ */
 export const api = axios.create({ baseURL: extra.apiBaseUrl });
 
 api.interceptors.request.use(async (config) => {

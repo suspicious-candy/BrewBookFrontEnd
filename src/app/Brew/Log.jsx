@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
 
 // ---------- API ----------
+/** Saves (effectively partial-updates) a tasting note via PUT /notes/:id. */
 // Backend exposes PUT /notes/:id (not PATCH). findOneAndUpdate only writes
 // the keys we send, so this is effectively a partial update.
 async function saveNote({ id, body }) {
@@ -28,8 +29,12 @@ async function saveNote({ id, body }) {
   return data;
 }
 
-// Best-effort: there's no /beans/:id/consume endpoint yet, so we swallow
-// failures here instead of failing the whole save flow.
+/**
+ * Best-effort bean-stock decrement via PATCH /beans/:id/consume; swallows errors
+ * so a stock-update failure never blocks saving the note.
+ * NOTE: currently unused — stock is decremented earlier, at the Confirm step in
+ * Brew/config.jsx — kept here for reference.
+ */
 async function tryDecrementBean({ beanId, grams }) {
   if (!beanId || !grams) return null;
   try {
@@ -42,6 +47,12 @@ async function tryDecrementBean({ beanId, grams }) {
 }
 
 // ---------- Screen ----------
+/**
+ * Brew flow step 4 — tasting log. Captures acidity/sweetness/body/finish sliders
+ * (sweetness and finish are stored in trackedParameters, since the Notes schema
+ * only has acidity/body/bitterness) plus free-text notes, derives an overall
+ * rating, and PUTs them onto the brew's existing Notes draft.
+ */
 export default function BrewLog() {
   const { notesId, beanId, recipeId } = useLocalSearchParams();
   const qc = useQueryClient();
@@ -170,6 +181,7 @@ export default function BrewLog() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled 0–10 slider row for one tasting dimension. */
 function SliderRow({ label, value, onChange }) {
   return (
     <View style={styles.sliderRow}>
@@ -182,6 +194,7 @@ function SliderRow({ label, value, onChange }) {
   );
 }
 
+/** A draggable 0–10 slider (PanResponder-based) reporting values via onChange. */
 function Slider({ value, onChange, min = 0, max = 10, step = 0.1 }) {
   const widthRef = useRef(0);
 
@@ -224,6 +237,7 @@ function Slider({ value, onChange, min = 0, max = 10, step = 0.1 }) {
   );
 }
 
+/** "Note logged" overlay that auto-returns to the Dashboard after a short delay. */
 function DoneOverlay({ visible }) {
   // Auto-redirect to home after a moment
   useEffect(() => {

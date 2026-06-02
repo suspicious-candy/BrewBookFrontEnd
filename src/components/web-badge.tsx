@@ -8,6 +8,10 @@ import { ThemedView } from './themed-view';
 
 import { Spacing } from '@/constants/theme';
 
+/**
+ * Footer badge showing the installed Expo SDK version and the Expo logo
+ * (light/dark variant). Unused Expo starter scaffolding — not referenced by the app.
+ */
 export function WebBadge() {
   const scheme = useColorScheme();
 

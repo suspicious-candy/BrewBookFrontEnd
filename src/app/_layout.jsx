@@ -30,6 +30,11 @@ function RootStack() {
   );
 }
 
+/**
+ * Root layout for the whole app. Wraps the screen stack in the global providers
+ * — safe-area, auth, React Query, and navigation theme — and applies the global
+ * font defaults once at startup.
+ */
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [queryClient] = useState(() => new QueryClient());

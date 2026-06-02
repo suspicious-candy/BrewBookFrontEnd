@@ -25,6 +25,11 @@ const INK = '#1f1f1f';
 const MUTED = '#6b6b6b';
 const BORDER = '#cdc7b8';
 
+/**
+ * Bottom-sheet number picker. Renders a horizontally scrolling wheel from `min`
+ * to `max` (by `step`); the value snapped to the center is highlighted, and
+ * confirming calls `onConfirm` with it. Used by the recipe editor (temp, bloom).
+ */
 export default function WheelPickerModal({
   visible,
   title,
@@ -59,12 +64,14 @@ export default function WheelPickerModal({
     return () => clearTimeout(t);
   }, [visible, initialIndex]);
 
+  // Snap the active index to the wheel item nearest the given scroll offset.
   const updateIndexFromOffset = (offset) => {
     const idx = Math.round(offset / ITEM_WIDTH);
     const clamped = Math.max(0, Math.min(items.length - 1, idx));
     setActiveIndex(clamped);
   };
 
+  // Emit the currently selected value and close the sheet.
   const handleConfirm = () => {
     onConfirm?.(items[activeIndex]);
     onClose?.();

@@ -15,17 +15,20 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '@/api/client';
 
 // ---------- API ----------
+/** Fetches a single tasting note by its numeric ID. */
 async function fetchNote(id) {
   const { data } = await apiClient.get(`/notes/${id}`);
   return data;
 }
 
+/** Deletes a tasting note by its numeric ID. */
 async function deleteNote(id) {
   const { data } = await apiClient.delete(`/notes/${id}`);
   return data;
 }
 
 // ---------- Helpers ----------
+/** Formats a date as "MON DD, YYYY". */
 function fmtDate(d) {
   if (!d) return '—';
   const date = new Date(d);
@@ -36,6 +39,7 @@ function fmtDate(d) {
   }).toUpperCase();
 }
 
+/** Formats the time portion of a date (e.g. "08:15 AM"). */
 function fmtTime(d) {
   if (!d) return '';
   const date = new Date(d);
@@ -45,6 +49,7 @@ function fmtTime(d) {
   });
 }
 
+/** Formats a seconds count as "Ns" (under a minute) or m:ss. */
 function fmtSeconds(s) {
   if (s == null) return '—';
   const m = Math.floor(s / 60);
@@ -53,12 +58,14 @@ function fmtSeconds(s) {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
+/** Formats a coffee:water brew ratio (e.g. 18g/300g → "1:17"). */
 function ratioOf(coffee, water) {
   if (!coffee || !water) return '—';
   const r = (water / coffee).toFixed(1).replace(/\.0$/, '');
   return `1:${r}`;
 }
 
+/** Normalizes trackedParameters (a Map or plain object) to an array of [key, value] pairs. */
 function paramEntries(tracked) {
   if (!tracked) return [];
   if (tracked instanceof Map) return Array.from(tracked.entries());
@@ -66,6 +73,10 @@ function paramEntries(tracked) {
 }
 
 // ---------- Screen ----------
+/**
+ * Note detail screen: shows a single brew's parameters, tasting profile, notes,
+ * and tracked parameters, with a confirm-and-delete flow.
+ */
 export default function NoteDetail() {
   const { NotesId: id } = useLocalSearchParams();
   const qc = useQueryClient();
@@ -285,6 +296,7 @@ export default function NoteDetail() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section header with a leading Ionicons glyph. */
 function SectionHeader({ icon, label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -294,6 +306,7 @@ function SectionHeader({ icon, label }) {
   );
 }
 
+/** A single labeled parameter cell in the brew-parameters grid. */
 function ParamCell({ label, value, right }) {
   return (
     <View style={[styles.paramCell, right && styles.paramCellRight]}>
@@ -303,6 +316,7 @@ function ParamCell({ label, value, right }) {
   );
 }
 
+/** A 0–10 horizontal meter bar with a numeric readout (body/acidity/bitterness). */
 function Meter({ label, value }) {
   const v = value != null ? Math.max(0, Math.min(10, value)) : null;
   return (

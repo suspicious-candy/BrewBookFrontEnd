@@ -41,20 +41,21 @@ src/
 │   ├── _layout.jsx              # Root layout — AuthProvider, theme
 │   ├── (tabs)/
 │   │   ├── _layout.jsx          # Bottom tab navigator
-│   │   ├── (home)/index.jsx     # Dashboard
-│   │   ├── BeanInventory/       # Bean list + detail
-│   │   ├── BrewerInventory/     # Brewer list + detail
-│   │   ├── Notes/               # Tasting notes journal
-│   │   └── User/                # Profile
-│   ├── Brew/                    # Brew flow (select → configure → session → log)
-│   ├── Recipe/                  # Recipe editor
-│   └── Login/                   # Login, create account, forgot password
+│   │   ├── Dashboard/           # At-a-glance last brew + daily stats
+│   │   ├── BeanInventory/       # Bean list, detail, add
+│   │   ├── BrewerInventory/     # Brewer list, detail, catalog
+│   │   ├── Notes/               # Tasting notes journal (list + detail)
+│   │   └── User/                # Profile (tab + detail)
+│   ├── Brew/                    # Brew flow (selection → config → session → Log)
+│   ├── Recipe/                  # Recipe editor (addRecipe)
+│   └── Login/                   # Sign in, create account
 ├── auth/
 │   ├── AuthContext.tsx          # AuthProvider + useAuth hook
 │   ├── api.ts                   # Axios instance with bearer-token interceptor
 │   └── config.ts                # Supabase client
-├── components/                  # Shared UI (themed text/view, tab bar, etc.)
-├── constants/theme.ts           # Color palette + spacing scale
+├── components/                  # Shared UI: ThemedText/ThemedView, WheelPickerModal
+│                                #   (plus unused Expo-starter components, kept for reference)
+├── constants/                   # theme tokens (colors/fonts/spacing) + global fonts
 └── hooks/                       # use-theme, use-color-scheme
 ```
 

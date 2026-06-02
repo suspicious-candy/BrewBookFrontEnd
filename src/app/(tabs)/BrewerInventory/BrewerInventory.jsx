@@ -41,6 +41,7 @@ const SORT_MODES = [
 ];
 
 // ---------- Helpers ----------
+/** Maps a brewer Type to an Ionicons glyph (flash = espresso, water = immersion, funnel = percolation). */
 function typeIconName(type) {
   switch (type) {
     case 'espresso':
@@ -54,6 +55,7 @@ function typeIconName(type) {
   }
 }
 
+/** Maps a filter type (paper/metal/cloth/N/A) to an Ionicons glyph. */
 function filterIconName(filter) {
   switch (filter) {
     case 'paper':  return 'document-outline';
@@ -64,12 +66,18 @@ function filterIconName(filter) {
   }
 }
 
+/** Capitalizes the first letter of a string. */
 function capitalize(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // ---------- Screen ----------
+/**
+ * My Brewers screen: a searchable, sortable grid of the brewers the user has
+ * added to their collection (from /brewers/me). A FAB opens the full catalog to
+ * add more; usage/recency sort modes are derived from the notes feed.
+ */
 export default function BrewerInventory() {
   const [sortMode, setSortMode] = useState('name-asc');
   const [sortOpen, setSortOpen] = useState(false);
@@ -221,6 +229,7 @@ export default function BrewerInventory() {
 }
 
 // ---------- Sort modal ----------
+/** Bottom-sheet modal listing the available brewer sort modes. */
 function SortModal({ visible, current, onClose, onPick }) {
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
@@ -249,6 +258,7 @@ function SortModal({ visible, current, onClose, onPick }) {
 }
 
 // ---------- Card ----------
+/** Grid card for one brewer: type, name, unit number, filter, and last-used status. */
 function BrewerCard({ brewer }) {
   const type = brewer.Type ?? '—';
   const filter = brewer.filterType ?? 'N/A';

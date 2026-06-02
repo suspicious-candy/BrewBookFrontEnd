@@ -4,6 +4,11 @@ import { type ComponentProps } from 'react';
 
 type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string };
 
+/**
+ * A <Link> for external URLs: opens in an in-app browser on native (via
+ * expo-web-browser) and in a new tab on web.
+ * Currently unused (only referenced by the unused app-tabs.web).
+ */
 export function ExternalLink({ href, ...rest }: Props) {
   return (
     <Link

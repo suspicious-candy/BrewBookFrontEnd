@@ -14,17 +14,20 @@ import apiClient from '@/api/client';
 import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
+/** Fetches the authenticated user's profile. */
 async function fetchMe() {
   const { data } = await apiClient.get('/users/me');
   return data;
 }
 
+/** Fetches the authenticated user's aggregated brewing stats. */
 async function fetchStats() {
   const { data } = await apiClient.get('/users/me/stats');
   return data; // { totalBrews, uniqueBeans, activeStreak, avgRating, favoriteBean }
 }
 
 // ---------- Helpers ----------
+/** Formats a date as "MON DD, YYYY". */
 function fmtDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-US', {
@@ -33,6 +36,10 @@ function fmtDate(d) {
 }
 
 // ---------- Screen ----------
+/**
+ * Profile detail screen: shows the user's identity, brewing stats, favorite
+ * bean/brewer/recipe, account metadata, and a sign-out action.
+ */
 export default function Profile() {
   const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ['me'],
@@ -135,6 +142,7 @@ export default function Profile() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section-divider row. */
 function SectionHeader({ label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -143,6 +151,7 @@ function SectionHeader({ label }) {
   );
 }
 
+/** A numbered metric row (label + value) with a loading spinner state. */
 function StatRow({ num, label, value, loading }) {
   return (
     <View style={styles.statRow}>
@@ -161,6 +170,7 @@ function StatRow({ num, label, value, loading }) {
   );
 }
 
+/** A label/value preference row; becomes a pressable (with chevron) when `onPress` is set. */
 function PrefRow({ label, value, onPress }) {
   const Wrapper = onPress ? Pressable : View;
   return (

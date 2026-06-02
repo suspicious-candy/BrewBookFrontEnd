@@ -11,6 +11,10 @@ type HintRowProps = {
   hint?: ReactNode;
 };
 
+/**
+ * A label paired with an inline code-snippet chip (e.g. "Try editing
+ * app/index.tsx"). Unused Expo starter scaffolding — not referenced by the app.
+ */
 export function HintRow({ title = 'Try editing', hint = 'app/index.tsx' }: HintRowProps) {
   return (
     <View style={styles.stepRow}>

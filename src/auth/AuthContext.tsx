@@ -22,6 +22,11 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+/**
+ * Provides authentication state to the whole app. Loads the current Supabase
+ * session on mount, subscribes to auth changes, and exposes the session, user,
+ * access token, and signIn/signUp/signOut actions through the `useAuth` hook.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isReady, setReady] = useState(false);
@@ -37,11 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  // Sign in with email + password. Returns { error } — null on success.
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   }, []);
 
+  // Register a new account; optional metadata is stored as Supabase user_metadata.
   const signUp = useCallback(
     async (
       email: string,
@@ -58,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  // Clear the current session and sign the user out.
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
@@ -79,6 +87,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * Reads auth state from the nearest <AuthProvider>. Throws if called outside one.
+ */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');

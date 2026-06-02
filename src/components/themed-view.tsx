@@ -9,6 +9,10 @@ export type ThemedViewProps = ViewProps & {
   type?: ThemeColor;
 };
 
+/**
+ * Theme-aware <View> whose background color comes from the active theme. Pass
+ * `type` to select a specific theme background key (defaults to `background`).
+ */
 export function ThemedView({ style, lightColor, darkColor, type, ...otherProps }: ThemedViewProps) {
   const theme = useTheme();
 

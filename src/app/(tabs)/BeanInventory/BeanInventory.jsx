@@ -22,6 +22,7 @@ import { FONT_SERIF } from '@/constants/fonts';
 const DEFAULT_CAPACITY_G = 250;
 
 // ---------- API ----------
+/** Fetches all bean documents from the API. */
 async function fetchBeans() {
   const { data } = await apiClient.get('/beans');
   return data; // array of bean documents (see schema)
@@ -55,6 +56,7 @@ const SORT_MODES = [
 ];
 
 // ---------- Helpers ----------
+/** Maps a roast level to an Ionicons glyph (moon = dark, sunny = light, leaf = green). */
 function roastIconName(roast) {
   switch (roast) {
     case 'french':
@@ -73,6 +75,7 @@ function roastIconName(roast) {
   }
 }
 
+/** Formats a bean's origin as "COUNTRY // REGION", skipping "none"/empty parts. */
 function originLabel(origin) {
   if (!origin) return '';
   const country = origin.Country && origin.Country !== 'none' ? origin.Country : '';
@@ -84,6 +87,11 @@ function originLabel(origin) {
 }
 
 // ---------- Screen ----------
+/**
+ * Bean Library screen: a searchable, sortable two-column grid of the user's
+ * beans. Sort modes cover name, roast, usage, recency, and roast date (usage and
+ * recency are derived from the notes feed). A FAB opens an add-bean menu.
+ */
 export default function BeanInventory() {
   const [sortMode, setSortMode] = useState('name-asc');
   const [sortOpen, setSortOpen] = useState(false);
@@ -289,6 +297,7 @@ export default function BeanInventory() {
 }
 
 // ---------- Sort modal ----------
+/** Bottom-sheet modal listing the available bean sort modes. */
 function SortModal({ visible, current, onClose, onPick }) {
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
@@ -317,6 +326,7 @@ function SortModal({ visible, current, onClose, onPick }) {
 }
 
 // ---------- Card ----------
+/** Grid card for one bean: origin, name, process/notes, varietal, and a depletion bar. */
 function BeanCard({ bean }) {
   const d = bean.details ?? {};
   const remaining = bean.Quantity ?? 0;

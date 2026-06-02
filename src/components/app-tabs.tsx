@@ -4,6 +4,12 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
+/**
+ * Unused Expo starter scaffolding — NOT wired into the app. The live tab bar is
+ * `src/app/(tabs)/_layout.jsx`. This renders demo "Home"/"Explore" tabs and
+ * points at a non-existent `/explore` route (and is missing an `Image` import),
+ * so it would not work as-is. Kept for reference only.
+ */
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];

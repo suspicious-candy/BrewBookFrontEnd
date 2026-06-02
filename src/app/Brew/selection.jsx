@@ -18,17 +18,20 @@ import apiClient from '@/api/client';
 const ASSUMED_CAPACITY_G = 250; // for the depletion bar
 
 // ---------- API ----------
+/** Fetches all beans (the user's library). */
 async function fetchBeans() {
   const { data } = await apiClient.get('/beans');
   return data;
 }
 
+/** Fetches a single recipe by its numeric ID. */
 async function fetchRecipe(id) {
   const { data } = await apiClient.get(`/recipes/${id}`);
   return data;
 }
 
 // ---------- Helpers ----------
+/** Formats a bean's origin as "COUNTRY REGION", skipping "none"/empty parts. */
 function originLabel(bean) {
   const c = bean.Origin?.Country;
   const r = bean.Origin?.Region;
@@ -38,23 +41,27 @@ function originLabel(bean) {
   return 'UNKNOWN ORIGIN';
 }
 
+/** One-line "Process • tasting notes" summary for a bean. */
 function notesLine(bean) {
   const process = bean.Process || 'Washed';
   const notes = bean.tasteProfile?.tastingNotes?.join(', ') || '—';
   return `${capitalize(process)} • ${notes}`;
 }
 
+/** Capitalizes the first letter of a string. */
 function capitalize(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Formats a coffee:water ratio (e.g. "1:16"), or "—" when inputs are missing. */
 function ratioOf(coffee, water) {
   if (!coffee || !water) return '—';
   const r = (water / coffee).toFixed(1).replace(/\.0$/, '');
   return `1:${r}`;
 }
 
+/** Formats a seconds count as "Ns" (under a minute) or m:ss. */
 function formatBrewTime(seconds) {
   if (!seconds) return '—';
   const m = Math.floor(seconds / 60);
@@ -64,6 +71,11 @@ function formatBrewTime(seconds) {
 }
 
 // ---------- Screen ----------
+/**
+ * Brew flow step 1 — bean selection. Shows the chosen recipe's ratio and brew
+ * time, then lists the user's beans (sufficiently-stocked first; under-dose beans
+ * are disabled). Selecting one continues to the brew-config screen.
+ */
 export default function BrewSelectBean() {
   const { recipeId } = useLocalSearchParams();
   const [selectedId, setSelectedId] = useState(null);

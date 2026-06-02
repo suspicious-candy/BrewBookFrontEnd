@@ -8,6 +8,11 @@ export type ThemedTextProps = TextProps & {
   themeColor?: ThemeColor;
 };
 
+/**
+ * Theme-aware <Text>. Takes its color from the active theme (overridable via
+ * `themeColor`) and applies one preset type style — title, subtitle, small,
+ * smallBold, link, linkPrimary, code, or default — selected by the `type` prop.
+ */
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 

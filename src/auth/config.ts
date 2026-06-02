@@ -17,6 +17,12 @@ if (!extra.supabaseUrl || !extra.supabaseAnonKey) {
   );
 }
 
+/**
+ * The app-wide Supabase client. Persists the auth session in AsyncStorage and
+ * auto-refreshes the access token. Its URL and anon key come from expo-constants
+ * `extra` (injected from env via app.config.js); the check above throws at
+ * startup if either is missing.
+ */
 export const supabase = createClient(extra.supabaseUrl, extra.supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,

@@ -53,6 +53,7 @@ const COUNTRY_COORDS = {
   Jamaica:      [-77.2975, 18.1096],
 };
 
+/** Looks up approximate [lng, lat] coords for a coffee-origin country name (case-insensitive). */
 function lookupCoords(name) {
   if (!name) return null;
   if (COUNTRY_COORDS[name]) return COUNTRY_COORDS[name];
@@ -63,6 +64,7 @@ function lookupCoords(name) {
   return match ? COUNTRY_COORDS[match] : null;
 }
 
+/** Builds a MapTiler static-map image URL for the given coords; null without a key or coords. */
 function buildStaticMapUrl(coords) {
   if (!MAPTILER_KEY || !coords) return null;
   const [lng, lat] = coords;
@@ -70,11 +72,13 @@ function buildStaticMapUrl(coords) {
 }
 
 // ---------- API ----------
+/** Fetches a single bean by its numeric beanId. */
 async function fetchBean(id) {
   const { data } = await apiClient.get(`/beans/${id}`);
   return data;
 }
 
+/** Formats a date as a localized "Mon D, YYYY", or "—" when missing/invalid. */
 function formatDate(d) {
   if (!d) return '—';
   const date = new Date(d);
@@ -86,12 +90,18 @@ function formatDate(d) {
   });
 }
 
+/** Deletes a bean by its numeric beanId. */
 async function deleteBeanRequest(id) {
   const { data } = await apiClient.delete(`/beans/${id}`);
   return data;
 }
 
 // ---------- Screen ----------
+/**
+ * Bean detail screen: shows an origin static-map (or fallback card), an info grid
+ * of bean attributes, a stock bar, an auto-generated description, and a delete
+ * action with confirmation.
+ */
 export default function BeanDetail() {
   const { BeanId: id } = useLocalSearchParams();
   const qc = useQueryClient();
@@ -271,6 +281,7 @@ export default function BeanDetail() {
 }
 
 // ---------- Subcomponents ----------
+/** A label/value row in the info grid; renders `custom` content instead of the value when given. */
 function Row({ label, value, custom }) {
   return (
     <View style={styles.row}>
@@ -283,11 +294,13 @@ function Row({ label, value, custom }) {
 }
 
 // ---------- Helpers ----------
+/** Capitalizes the first letter of a string. */
 function capitalize(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Composes a readable description of a bean from its varietal, altitude, process, and notes. */
 function buildAutoDescription(bean) {
   const d = bean.details ?? {};
   const parts = [];

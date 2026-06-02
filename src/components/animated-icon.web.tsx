@@ -5,6 +5,8 @@ import Animated, { Keyframe, Easing } from 'react-native-reanimated';
 import classes from './animated-icon.module.css';
 const DURATION = 300;
 
+// Unused Expo starter splash scaffolding (web). No native splash to mask here,
+// so the overlay is a no-op.
 export function AnimatedSplashOverlay() {
   return null;
 }
@@ -54,6 +56,7 @@ const glowKeyframe = new Keyframe({
   },
 });
 
+/** Web variant of the animated splash icon (uses a CSS-module glow background). */
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>

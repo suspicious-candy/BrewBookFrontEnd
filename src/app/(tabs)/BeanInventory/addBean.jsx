@@ -33,12 +33,14 @@ const ROASTS = [
 const PROCESSES = ['wash', 'natural', 'honey', 'anaerobic'];
 
 // ---------- API ----------
+/** Creates a bean via the API. */
 async function createBean(body) {
   const { data } = await apiClient.post('/beans', body);
   return data;
 }
 
 // ---------- Helpers ----------
+/** True if the string is a valid YYYY-MM-DD date. */
 function isValidDate(s) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
   const d = new Date(s);
@@ -46,6 +48,11 @@ function isValidDate(s) {
 }
 
 // ---------- Screen ----------
+/**
+ * Add-bean form: collects identity, botanicals, roast, and stock, validates the
+ * name and roast date, then POSTs a new bean (nested under `details`, matching
+ * the Bean schema) and returns to the inventory.
+ */
 export default function AddBean() {
   const qc = useQueryClient();
 
@@ -252,6 +259,7 @@ export default function AddBean() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section-divider row. */
 function SectionHeader({ label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -260,6 +268,7 @@ function SectionHeader({ label }) {
   );
 }
 
+/** A labeled form-field wrapper around its input children. */
 function Field({ label, children }) {
   return (
     <View style={styles.field}>
@@ -269,6 +278,7 @@ function Field({ label, children }) {
   );
 }
 
+/** A horizontally scrolling row of single-select option chips. */
 function ChipRow({ options, selected, onSelect }) {
   return (
     <ScrollView

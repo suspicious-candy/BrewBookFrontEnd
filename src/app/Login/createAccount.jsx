@@ -15,6 +15,11 @@ import {
 
 import { useAuth } from '@/auth/AuthContext';
 
+/**
+ * Create-account screen. Validates the form against the User schema limits
+ * (name/email lengths, 10–50 char password, matching confirmation), calls signUp
+ * with name metadata, and returns to Login on success.
+ */
 export default function BrewLedgerCreateAccount() {
   const { signUp } = useAuth();
   const [form, setForm] = useState({
@@ -28,14 +33,14 @@ export default function BrewLedgerCreateAccount() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
 
+  // Update one field and clear any error / server error tied to it.
   const update = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
     if (serverError) setServerError(null);
   };
 
-  // Mirror the Mongoose schema constraints
-  
+  // Client-side validation mirroring the User schema constraints. Returns true if valid.
   const validate = () => {
     const next = {};
 
@@ -61,6 +66,7 @@ export default function BrewLedgerCreateAccount() {
     return Object.keys(next).length === 0;
   };
 
+  // Validate, call signUp, then route to Login; map email errors back to the field.
   const handleCreate = async () => {
     if (!validate()) return;
     setSubmitting(true);
@@ -209,6 +215,10 @@ export default function BrewLedgerCreateAccount() {
   );
 }
 
+/**
+ * Labeled text input with inline error-or-hint text. Used for every field on the
+ * create-account form.
+ */
 function Field({
   label,
   placeholder,

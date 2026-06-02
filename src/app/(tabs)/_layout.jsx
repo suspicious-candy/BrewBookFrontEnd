@@ -7,6 +7,10 @@ export const unstable_settings = {
   initialRouteName: 'Dashboard',
 };
 
+/**
+ * Bottom tab navigator for the signed-in app: Beans · Brewers · Dashboard ·
+ * Notes · Profile (Dashboard is the initial tab). Each tab uses an Ionicons glyph.
+ */
 export default function TabsLayout() {
   return (
     <Tabs

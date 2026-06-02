@@ -17,27 +17,32 @@ import { FONT_SERIF } from '@/constants/fonts';
 const FILTER_OPTIONS = ['paper', 'metal', 'cloth', 'N/A'];
 
 // ---------- API ----------
+/** Fetches a single brewer by its numeric BrewerID. */
 async function fetchBrewer(id) {
   const { data } = await apiClient.get(`/brewers/${id}`);
   return data;
 }
 
+/** Fetches the recipes paired with a brewer (by BrewerID). */
 async function fetchRecipesForBrewer(id) {
   const { data } = await apiClient.get(`/recipes/brewer/${id}`);
   return data;
 }
 
+/** Updates a brewer (by BrewerID) with the given partial patch. */
 async function updateBrewer({ id, patch }) {
   const { data } = await apiClient.put(`/brewers/${id}`, patch);
   return data;
 }
 
 // ---------- Helpers ----------
+/** Capitalizes the first letter of a string. */
 function capitalize(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Splits a brewer name into { brand, model } — first word vs. the rest. */
 function splitName(name = '') {
   const parts = name.trim().split(/\s+/);
   if (parts.length < 2) return { brand: name.toUpperCase(), model: '' };
@@ -47,18 +52,21 @@ function splitName(name = '') {
   };
 }
 
+/** Normalizes trackedParameters (a Map or plain object) to [key, value] pairs. */
 function paramEntries(tracked) {
   if (!tracked) return [];
   if (tracked instanceof Map) return Array.from(tracked.entries());
   return Object.entries(tracked);
 }
 
+/** Formats a coffee:water ratio (e.g. "1:16"), or null when inputs are missing. */
 function ratioOf(coffee, water) {
   if (!coffee || !water) return null;
   const r = (water / coffee).toFixed(1).replace(/\.0$/, '');
   return `1:${r}`;
 }
 
+/** Maps a brewer Type to an Ionicons glyph. */
 function typeIconName(type) {
   switch (type) {
     case 'espresso':    return 'flash';
@@ -68,6 +76,7 @@ function typeIconName(type) {
   }
 }
 
+/** Maps a filter type (paper/metal/cloth/N/A) to an Ionicons glyph. */
 function filterIconName(filter) {
   switch (filter) {
     case 'paper': return 'document-outline';
@@ -79,6 +88,11 @@ function filterIconName(filter) {
 }
 
 // ---------- Screen ----------
+/**
+ * Brewer detail / spec screen: hero card, read-only type, an editable filter-type
+ * selector that auto-saves, any tracked parameters, and the recipes paired with
+ * this brewer — plus a button to add another recipe.
+ */
 export default function BrewerDetail() {
   const { BrewerId: id } = useLocalSearchParams();
   const qc = useQueryClient();
@@ -261,6 +275,7 @@ export default function BrewerDetail() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section header with a leading Ionicons glyph. */
 function SectionHeader({ icon, label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -270,6 +285,7 @@ function SectionHeader({ icon, label }) {
   );
 }
 
+/** A paired-recipe row (name, dose/water, ratio) that opens the brew-config flow. */
 function RecipeRow({ recipe, brewerId }) {
   const dose = recipe.CoffeeIn ?? recipe.coffeeGrams;
   const water = recipe.WaterIn ?? recipe.waterGrams;

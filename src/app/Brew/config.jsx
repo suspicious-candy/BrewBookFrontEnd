@@ -19,11 +19,13 @@ import { useAuth } from '@/auth/AuthContext';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ---------- API ----------
+/** Fetches a single recipe by its numeric ID. */
 async function fetchRecipe(id) {
   const { data } = await apiClient.get(`/recipes/${id}`);
   return data;
 }
 
+/** Fetches a single brewer by its numeric BrewerID. */
 async function fetchBrewer(id) {
   const { data } = await apiClient.get(`/brewers/${id}`);
   return data;
@@ -60,12 +62,14 @@ async function fetchUserBeans(email) {
 }
 
 // ---------- Helpers ----------
+/** Formats a coffee:water ratio (e.g. "1:16"), or "—" when inputs are missing. */
 function ratioOf(coffee, water) {
   if (!coffee || !water) return '—';
   const r = (water / coffee).toFixed(1).replace(/\.0$/, '');
   return `1:${r}`;
 }
 
+/** Describes a grind setting as "Band / N clicks" (e.g. "Medium / 28 clicks"). */
 function formatGrind(clicks) {
   if (clicks == null) return '—';
   let band = 'Custom';
@@ -78,6 +82,7 @@ function formatGrind(clicks) {
   return `${band} / ${clicks} clicks`;
 }
 
+/** Builds an inclusive numeric array from `min` to `max` by `step`. */
 function range(min, max, step = 1) {
   const out = [];
   for (let i = min; i <= max; i += step) out.push(Number(i.toFixed(2)));
@@ -85,6 +90,12 @@ function range(min, max, step = 1) {
 }
 
 // ---------- Screen ----------
+/**
+ * Brew flow step 2 — configuration. Seeds editable brew parameters from the
+ * recipe, scales dose/water by cup count, lets the user pick/confirm the bean and
+ * tweak each parameter, then creates a Notes draft (decrementing bean stock) and
+ * continues to the live brew session.
+ */
 export default function RecipeConfig() {
   const { recipeId, brewerId, beanId: beanIdFromUrl } = useLocalSearchParams();
   const { user } = useAuth();
@@ -529,6 +540,7 @@ export default function RecipeConfig() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section-divider row. */
 function SectionHeader({ label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -537,6 +549,7 @@ function SectionHeader({ label }) {
   );
 }
 
+/** A label with −/+ stepper controls that adjust a numeric value by `step` (clamped at `min`). */
 function AdjustRow({ label, value, step, unit, min = 0, onChange }) {
   const dec = () => onChange(Math.max(min, +(value - step).toFixed(2)));
   const inc = () => onChange(+(value + step).toFixed(2));
@@ -560,6 +573,7 @@ function AdjustRow({ label, value, step, unit, min = 0, onChange }) {
 }
 
 // ---------- Bean Picker Modal ----------
+/** Bottom-sheet modal for choosing which bean to brew with. */
 function BeanPickerModal({ visible, beans, selectedId, onClose, onSelect }) {
   if (!visible) return null;
   return (
@@ -629,6 +643,7 @@ function BeanPickerModal({ visible, beans, selectedId, onClose, onSelect }) {
 // ---------- Horizontal Picker Modal ----------
 const ITEM_WIDTH = 80;
 
+/** Horizontal wheel-picker modal for numeric brew parameters (dose, water, temp, …). */
 function PickerModal({ config, onClose, onSelect }) {
   // Seed scrollX with the selected item's offset so the wheel renders already
   // centered on the current value — scrollX drives the opacity/scale highlight,

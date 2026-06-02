@@ -18,6 +18,7 @@ import apiClient from '@/api/client';
 import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
+/** Fetches all tasting notes (Recipe → Brewer/bean populated) from the API. */
 async function fetchNotes() {
   // Expect backend to populate Recipe (and through it: Brewer + bean).
   const { data } = await apiClient.get('/notes');
@@ -25,6 +26,7 @@ async function fetchNotes() {
 }
 
 // ---------- Helpers ----------
+/** Formats a date as "MON DD, YYYY". */
 function fmtDate(d) {
   if (!d) return '';
   const date = new Date(d);
@@ -32,10 +34,12 @@ function fmtDate(d) {
   return `${m} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()}`;
 }
 
+/** Returns the note's brewer name, or "BREWER". */
 function brewerName(note) {
   return note.Recipe?.Brewer?.Name || 'BREWER';
 }
 
+/** Returns the note's bean name (details.Name, falling back to .Name), or "UNKNOWN BEAN". */
 function beanName(note) {
   // Bean docs store the name at .details.Name. Fall back to .Name in case an
   // older record was inserted without the nested shape.
@@ -46,12 +50,14 @@ function beanName(note) {
   );
 }
 
+/** One-line summary of a note's tasting notes (or additional notes), or "—". */
 function tastingLine(note) {
   if (note.tastingNotes?.length) return note.tastingNotes.join(', ');
   if (note.AdditionalNotes) return note.AdditionalNotes;
   return '—';
 }
 
+/** Maps a brewer Type ("espresso"/"immersion"/"Perculation") to an Ionicons glyph. */
 function brewerIconName(type) {
   switch (type) {
     case 'espresso':    return 'flash-outline';
@@ -62,6 +68,10 @@ function brewerIconName(type) {
 }
 
 // ---------- Screen ----------
+/**
+ * Notes journal screen: a searchable list of rated brews with bean/brewer filter
+ * chips and a bottom-sheet filter picker. Only brews with a numeric rating show.
+ */
 export default function NotesJournal() {
   const [search, setSearch] = useState('');
   const [beanFilter, setBeanFilter]     = useState(null); // bean.Name
@@ -207,6 +217,7 @@ export default function NotesJournal() {
 }
 
 // ---------- Subcomponents ----------
+/** A single tappable note row: date, brewer, bean, tasting line, and rating. */
 function NoteRow({ note }) {
   const rating = note.overallRating ?? null;
 
@@ -251,6 +262,7 @@ function NoteRow({ note }) {
   );
 }
 
+/** A filter chip with active styling and an optional dropdown chevron. */
 function Chip({ label, active, onPress, dropdown }) {
   return (
     <Pressable
@@ -272,6 +284,7 @@ function Chip({ label, active, onPress, dropdown }) {
   );
 }
 
+/** Bottom-sheet modal listing filter options (plus "All") for bean or brewer. */
 function FilterModal({ title, options, visible, current, onClose, onPick }) {
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>

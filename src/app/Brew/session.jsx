@@ -19,17 +19,20 @@ import apiClient from '@/api/client';
 const PREP_SECONDS = 10;
 
 // ---------- API ----------
+/** Fetches a single recipe by its numeric ID. */
 async function fetchRecipe(id) {
   const { data } = await apiClient.get(`/recipes/${id}`);
   return data;
 }
 
+/** Fetches a single brewer by its numeric BrewerID. */
 async function fetchBrewer(id) {
   const { data } = await apiClient.get(`/brewers/${id}`);
   return data;
 }
 
 // ---------- Helpers ----------
+/** Formats a seconds count as MM:SS. */
 function fmtMS(seconds) {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);
@@ -37,7 +40,7 @@ function fmtMS(seconds) {
   return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 }
 
-// Compute per-step duration from cumulative `at` values
+/** Derives timed steps (each with a `duration`) from a recipe's cumulative `pours` schedule. */
 function buildSteps(pours, brewTime) {
   if (!pours?.length) return [];
   return pours.map((p, i) => {
@@ -55,6 +58,12 @@ function buildSteps(pours, brewTime) {
 }
 
 // ---------- Screen ----------
+/**
+ * Brew flow step 3 — the live guided session. Turns the recipe's pour schedule
+ * into a checklist with a 10-second prep countdown and a per-step timer (which
+ * advances automatically, or via Start Now / Skip). On completion it offers to
+ * log tasting notes or return home.
+ */
 export default function BrewSession() {
   const { recipeId, notesId, brewerId, beanId } = useLocalSearchParams();
 
@@ -281,6 +290,7 @@ export default function BrewSession() {
 }
 
 // ---------- Done Overlay ----------
+/** Full-screen "brew complete" overlay offering to log the brew or return home. */
 function DoneOverlay({ visible, notesId, beanId, brewerId, recipeId }) {
   if (!visible) return null;
   return (

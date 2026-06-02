@@ -47,6 +47,11 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
+/**
+ * Moves (userInput "y") or deletes (userInput "n") the existing /src and
+ * /scripts directories, then scaffolds a fresh /src/app with starter index +
+ * layout files. Part of the Expo starter tooling — safe to remove.
+ */
 const moveDirectories = async (userInput) => {
   try {
     if (userInput === "y") {

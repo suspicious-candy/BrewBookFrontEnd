@@ -41,6 +41,7 @@ Pour to 220g in slow circles over 10 seconds.
 Pour to 250g to finish. Let it drawdown completely.`;
 
 // ---------- API ----------
+/** Fetches a single brewer by its numeric BrewerID. */
 async function fetchBrewer(id) {
   const { data } = await apiClient.get(`/brewers/${id}`);
   return data;
@@ -59,12 +60,14 @@ async function fetchUserBeans(email) {
   }
 }
 
+/** Creates a recipe via the API. */
 async function createRecipe(body) {
   const { data } = await apiClient.post('/recipes', body);
   return data;
 }
 
 // ---------- Auto-detection helpers ----------
+/** Parses a duration in seconds from free text ("45s", "1:30", "2 min"); null if none. */
 function extractSeconds(t) {
   const lower = t.toLowerCase();
   const mmss = lower.match(/(\d+):(\d{2})/);
@@ -76,6 +79,7 @@ function extractSeconds(t) {
   return null;
 }
 
+/** Parses a "pour to" gram target from free text; null if none found. */
 function extractGrams(t) {
   const lower = t.toLowerCase();
   const toX = lower.match(/(?:to|until|at|reach)\s*(\d+)\s*g/);
@@ -84,6 +88,7 @@ function extractGrams(t) {
   return anyG ? Number(anyG[1]) : null;
 }
 
+/** Infers a pour-step type (bloom/swirl/stir/plunge/wait/pour) from the wording. */
 function guessType(t) {
   const lower = t.toLowerCase();
   if (/bloom/.test(lower))                    return 'bloom';
@@ -95,6 +100,7 @@ function guessType(t) {
   return 'pour';
 }
 
+/** Builds a step object (type, duration, pour-to, timed flag) from one paragraph. */
 function detectStep(paragraph) {
   return {
     text:     paragraph.trim(),
@@ -106,6 +112,7 @@ function detectStep(paragraph) {
   };
 }
 
+/** Splits text into trimmed, non-empty paragraphs on blank lines. */
 function splitParagraphs(text) {
   return text
     .split(/\n{2,}|\r\n{2,}/)
@@ -114,9 +121,16 @@ function splitParagraphs(text) {
 }
 
 let _id = 0;
+/** Returns a unique local id for a step card (module-scoped counter). */
 const newId = () => `s_${++_id}`;
 
 // ---------- Screen ----------
+/**
+ * Recipe editor. Builds a recipe for a brewer: name, optional bean, brew
+ * parameters (dose/water/temp/bloom/agitation), and a pour schedule — either
+ * built step-by-step or pasted as prose and auto-split into steps. Validates that
+ * the final pour reaches the total water, then POSTs the recipe.
+ */
 export default function AddRecipe() {
   const { brewerId } = useLocalSearchParams();
   const qc = useQueryClient();
@@ -561,6 +575,7 @@ export default function AddRecipe() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section-divider row. */
 function SectionHeader({ label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -569,6 +584,7 @@ function SectionHeader({ label }) {
   );
 }
 
+/** A labeled numeric input cell (dose/water) with a unit suffix. */
 function ParamInput({ label, value, onChange, unit, right }) {
   return (
     <View style={[styles.paramCell, right && styles.paramCellRight]}>
@@ -586,8 +602,10 @@ function ParamInput({ label, value, onChange, unit, right }) {
   );
 }
 
-// Same visual footprint as ParamInput, but tapping opens a wheel picker
-// instead of bringing up the keyboard. Used for TEMP and BLOOM.
+/**
+ * Same visual footprint as ParamInput, but tapping opens a wheel picker instead
+ * of the keyboard. Used for TEMP and BLOOM.
+ */
 function ParamPicker({ label, value, unit, right, onPress }) {
   return (
     <Pressable
@@ -606,6 +624,7 @@ function ParamPicker({ label, value, unit, right, onPress }) {
   );
 }
 
+/** An editable pour-step card: description, type chips, timed/duration, and pour-to target. */
 function StepCard({ index, step, isFirst, isLast, onChange, onDelete, onMoveUp, onMoveDown }) {
   return (
     <View style={styles.stepCard}>

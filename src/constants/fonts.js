@@ -9,6 +9,11 @@ export const FONT_MONO = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
 // <TextInput> in the app. We override `.render` (instead of `defaultProps`)
 // so the base styles get merged in even when callers pass their own `style`.
 let applied = false;
+/**
+ * Applies the app's default font (mono, weight 500) to every <Text> and
+ * <TextInput> by patching their `.render`. Idempotent — only the first call
+ * takes effect.
+ */
 export function applyGlobalFontDefaults() {
   if (applied) return;
   applied = true;

@@ -15,6 +15,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
+/** Fetches the authenticated user's aggregated dashboard payload from the API. */
 async function fetchDashboard() {
   const { data } = await apiClient.get('/dashboard');
   return data;
@@ -30,6 +31,7 @@ async function fetchDashboard() {
 }
 
 // ---------- Helpers ----------
+/** Formats a date as a short relative label ("3 HOURS AGO"), falling back to a date. */
 function timeAgo(date) {
   if (!date) return '—';
   const ms = Date.now() - new Date(date).getTime();
@@ -45,6 +47,7 @@ function timeAgo(date) {
   }).toUpperCase();
 }
 
+/** Formats a seconds count as m:ss (e.g. 210 → "3:30"). */
 function fmtSeconds(s) {
   if (s == null) return '—';
   const m = Math.floor(s / 60);
@@ -52,6 +55,7 @@ function fmtSeconds(s) {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
+/** Returns the user's uppercase initials (first + last), or "—" when unavailable. */
 function initialsOf(user) {
   if (!user) return '—';
   const a = user.firstName?.[0] ?? '';
@@ -60,6 +64,11 @@ function initialsOf(user) {
 }
 
 // ---------- Screen ----------
+/**
+ * Dashboard screen: shows the last-brew card, daily stats, and quick actions.
+ * Gates on auth (redirecting to Login when signed out) and renders loading and
+ * error states around the React Query fetch.
+ */
 export default function Dashboard() {
   const { isAuthenticated, isReady } = useAuth();
 
@@ -77,7 +86,6 @@ export default function Dashboard() {
       </View>
     );
   }
-    console.log(isAuthenticated);
 
   // Auth gate: <Redirect> works during render, unlike router.replace in useEffect.
   if (!isAuthenticated) {
@@ -109,7 +117,6 @@ export default function Dashboard() {
     lastBrew?.Recipe?.bean?.Name ||
     'Unknown Bean';
   const brewerName = lastBrew?.Recipe?.Brewer?.Name || 'Unknown Brewer';
-  console.log(data);
 
   return (
     <View style={styles.safe}>
@@ -222,6 +229,7 @@ export default function Dashboard() {
 }
 
 // ---------- Subcomponents ----------
+/** A labeled section-divider row. */
 function SectionHeader({ label }) {
   return (
     <View style={styles.sectionHeader}>
@@ -230,6 +238,7 @@ function SectionHeader({ label }) {
   );
 }
 
+/** A quick-action row (icon, title, subtitle); rendered non-interactive when `disabled`. */
 function ActionRow({ icon, title, subtitle, onPress, disabled }) {
   const Wrapper = disabled ? View : Pressable;
   return (
@@ -248,6 +257,7 @@ function ActionRow({ icon, title, subtitle, onPress, disabled }) {
   );
 }
 
+/** Renders a 0–10 rating as five filled/outline stars. */
 function StarRating({ value }) {
   // Assumes overallRating is on a 0-10 scale; convert to 5 stars.
   const stars5 = value != null ? Math.round((value / 10) * 5) : 0;

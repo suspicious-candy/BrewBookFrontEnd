@@ -16,6 +16,11 @@ import { ThemedView } from './themed-view';
 
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 
+/**
+ * Unused Expo starter scaffolding — NOT wired into the app. The live tab bar is
+ * `src/app/(tabs)/_layout.jsx`. This renders a demo "Expo Starter" web tab bar
+ * with Home/Explore triggers. Kept for reference only.
+ */
 export default function AppTabs() {
   return (
     <Tabs>

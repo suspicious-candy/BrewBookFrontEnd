@@ -8,6 +8,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * An expand/collapse section: tapping the title row (with its rotating chevron)
+ * toggles the children, which fade in when shown.
+ * Currently unused (Expo starter scaffolding).
+ */
 export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const theme = useTheme();

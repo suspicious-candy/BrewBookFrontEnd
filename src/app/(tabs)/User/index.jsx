@@ -4,6 +4,10 @@ import { useAuth } from '@/auth/AuthContext';
 import Profile from './[UserId]';
 import { FONT_SERIF } from '@/constants/fonts';
 
+/**
+ * Profile tab: renders the signed-in user's Profile screen, or a sign-in prompt
+ * when logged out (and a loader until auth state is ready).
+ */
 export default function ProfileTab() {
   const { isReady, isAuthenticated } = useAuth();
 

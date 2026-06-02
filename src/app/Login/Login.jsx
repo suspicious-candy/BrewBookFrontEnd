@@ -13,6 +13,11 @@ import {
 
 import { useAuth } from '@/auth/AuthContext';
 
+/**
+ * Sign-in screen ("The Brew Ledger"). Collects an email + access code, calls the
+ * Supabase-backed signIn, surfaces errors inline, and redirects to the Dashboard
+ * once authenticated.
+ */
 export default function BrewLedgerLogin() {
   const [email, setEmail] = useState('');
   const [accessCode, setAccessCode] = useState('');
@@ -25,6 +30,7 @@ export default function BrewLedgerLogin() {
     if (isAuthenticated) router.replace('/Dashboard');
   }, [isAuthenticated, router]);
 
+  // Validate inputs, then attempt sign-in; show any error and reset the busy flag.
   const handleLogin = async () => {
     setError('');
     if (!email.trim() || !accessCode) {

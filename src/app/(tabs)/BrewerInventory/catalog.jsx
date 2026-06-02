@@ -19,22 +19,26 @@ import apiClient from '@/api/client';
 import { FONT_SERIF } from '@/constants/fonts';
 
 // ---------- API ----------
+/** Fetches the full brewer catalog (all brewers). */
 async function fetchCatalog() {
   const { data } = await apiClient.get('/brewers');
   return data;
 }
 
+/** Fetches the user's brewer collection (used to mark which catalog items are already added). */
 async function fetchMyBrewers() {
   const { data } = await apiClient.get('/brewers/me');
   return data;
 }
 
+/** Adds a catalog brewer (by BrewerID) to the user's collection. */
 async function addBrewerToCollection(brewerId) {
   const { data } = await apiClient.post(`/brewers/me/${brewerId}`);
   return data;
 }
 
 // ---------- Helpers ----------
+/** Maps a brewer Type to an Ionicons glyph. */
 function typeIconName(type) {
   switch (type) {
     case 'espresso':    return 'flash';
@@ -43,11 +47,17 @@ function typeIconName(type) {
     default:            return 'cafe-outline';
   }
 }
+/** Capitalizes the first letter of a string. */
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
 
 // ---------- Screen ----------
+/**
+ * Brewer catalog screen: lists every brewer in the global catalog with search.
+ * Brewers already in the user's collection show an "ADDED" pill; the rest get an
+ * Add button that posts to /brewers/me.
+ */
 export default function BrewerCatalog() {
   const qc = useQueryClient();
   const [query, setQuery] = useState('');
@@ -157,6 +167,7 @@ export default function BrewerCatalog() {
 }
 
 // ---------- Row ----------
+/** A catalog row: brewer name/type/filter, with an Add button or an "ADDED" pill. */
 function CatalogRow({ brewer, isOwned, isAdding, onAdd }) {
   const type = brewer.Type ?? '—';
   const filter = brewer.filterType ?? 'N/A';
